@@ -12,7 +12,8 @@ let state = {
     sortBy: 'date-desc',
     view: 'expenses',
     expenses: [],
-    totalCount: 0
+    totalCount: 0,
+    chart: null
 };
 
 // Elements
@@ -80,6 +81,92 @@ export const renderSummary = async () => {
             : '<p class="empty-state">No data for this month.</p>';
     } catch (error) {
         console.error('Summary error:', error);
+    }
+};
+
+const renderChart = (dailyTotals) => {
+    const ctx = document.getElementById('expense-chart').getContext('2d');
+    const labels = Object.keys(dailyTotals);
+    const data = Object.values(dailyTotals);
+
+    if (state.chart) {
+        state.chart.destroy();
+    }
+
+    state.chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels.map(date => new Date(date).getDate()),
+            datasets: [{
+                label: 'Daily Expenses (₹)',
+                data: data,
+                borderColor: '#8b5cf6',
+                backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                borderWidth: 3,
+                fill: true,
+                tension: 0.4,
+                pointRadius: 4,
+                pointBackgroundColor: '#8b5cf6'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false,
+                    backgroundColor: '#1e293b',
+                    titleFont: { family: 'Outfit' },
+                    bodyFont: { family: 'Outfit' }
+                }
+            },
+            scales: {
+                x: {
+                    grid: { display: false },
+                    ticks: { color: '#94a3b8', font: { size: 10 } }
+                },
+                y: {
+                    beginAtZero: true,
+                    grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                    ticks: { color: '#94a3b8', font: { size: 10 } }
+                }
+            }
+        }
+    });
+};
+
+export const renderAnalytics = async () => {
+    const user = getCurrentUser();
+    if (!user) return;
+    
+    try {
+        const { totalLastMonth, totalYesterday, dailyTotals } = await api.getComparison(user.email);
+        
+        // Month comparison
+        const monthRes = await api.getSummary(user.email);
+        const thisMonthTotal = monthRes.totalMonth;
+        const monthDiff = thisMonthTotal - totalLastMonth;
+        const monthPerc = totalLastMonth ? (monthDiff / totalLastMonth * 100).toFixed(0) : (thisMonthTotal ? 100 : 0);
+        
+        const mBadge = document.getElementById('month-diff');
+        mBadge.textContent = `${monthPerc > 0 ? '+' : ''}${monthPerc}%`;
+        mBadge.className = `diff-badge ${monthPerc > 0 ? 'up' : 'down'}`;
+
+        // Today comparison
+        const todayTotal = monthRes.totalToday;
+        const todayDiff = todayTotal - totalYesterday;
+        const todayPerc = totalYesterday ? (todayDiff / totalYesterday * 100).toFixed(0) : (todayTotal ? 100 : 0);
+        
+        const tBadge = document.getElementById('today-diff');
+        tBadge.textContent = `${todayPerc > 0 ? '+' : ''}${todayPerc}%`;
+        tBadge.className = `diff-badge ${todayPerc > 0 ? 'up' : 'down'}`;
+
+        // Chart
+        renderChart(dailyTotals);
+    } catch (error) {
+        console.error('Analytics error:', error);
     }
 };
 
@@ -177,7 +264,10 @@ const setActiveTab = (btn) => {
     state.view = tabId;
     saveState();
     
-    if (tabId === 'expenses') renderExpenses();
+    if (tabId === 'expenses') {
+        renderExpenses();
+        renderAnalytics();
+    }
     if (tabId === 'reports') renderSummary();
     if (tabId === 'logs') renderLogs();
 };
@@ -350,6 +440,7 @@ export const initUI = () => {
             closeModal(els.expenseModal);
             renderExpenses();
             renderSummary();
+            renderAnalytics();
         } catch (error) {
             showToast('Error saving expense', true);
         } finally {
@@ -378,6 +469,7 @@ export const initUI = () => {
             closeModal(els.deleteModal);
             renderExpenses();
             renderSummary();
+            renderAnalytics();
         } catch (error) {
             showToast('Error deleting expense', true);
         } finally {

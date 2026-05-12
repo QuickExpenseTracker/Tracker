@@ -88,6 +88,39 @@ export const api = {
         return { totalMonth, totalToday, breakdown };
     },
 
+    async getComparison(userId) {
+        const now = new Date();
+        const startOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().split('T')[0];
+        const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0).toISOString().split('T')[0];
+        
+        const yesterday = new Date(now);
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayStr = yesterday.toISOString().split('T')[0];
+
+        // Last month total
+        const lastMonthRes = await fetch(`${URL}/rest/v1/expenses?created_by=eq.${userId}&date=gte.${startOfLastMonth}&date=lte.${endOfLastMonth}&select=amount`, { headers });
+        const lastMonthData = await lastMonthRes.json();
+        const totalLastMonth = lastMonthData.reduce((sum, item) => sum + parseFloat(item.amount), 0);
+
+        // Yesterday total
+        const yesterdayRes = await fetch(`${URL}/rest/v1/expenses?created_by=eq.${userId}&date=eq.${yesterdayStr}&select=amount`, { headers });
+        const yesterdayData = await yesterdayRes.json();
+        const totalYesterday = yesterdayData.reduce((sum, item) => sum + parseFloat(item.amount), 0);
+
+        // Daily data for the current month chart
+        const startOfMonthStr = startOfThisMonth.toISOString().split('T')[0];
+        const chartRes = await fetch(`${URL}/rest/v1/expenses?created_by=eq.${userId}&date=gte.${startOfMonthStr}&select=date,amount&order=date.asc`, { headers });
+        const chartDataRaw = await chartRes.json();
+        
+        const dailyTotals = chartDataRaw.reduce((acc, item) => {
+            acc[item.date] = (acc[item.date] || 0) + parseFloat(item.amount);
+            return acc;
+        }, {});
+
+        return { totalLastMonth, totalYesterday, dailyTotals };
+    },
+
     async addLog(log) {
         const response = await fetch(`${URL}/rest/v1/activity_log`, {
             method: 'POST',

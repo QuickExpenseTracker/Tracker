@@ -18,6 +18,7 @@ const onAuthStateChanged = (user) => {
         // Initial load
         renderExpenses();
         renderSummary();
+        renderAnalytics();
     } else {
         authView.classList.remove('hidden');
         mainView.classList.add('hidden');
