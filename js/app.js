@@ -1,5 +1,5 @@
 import { initAuth, loginWithGoogle, logout } from './auth.js';
-import { initUI, renderExpenses, renderSummary } from './ui.js';
+import { initUI, renderExpenses, renderSummary, renderAnalytics } from './ui.js';
 import { setLoading } from './utils.js';
 
 const authView = document.getElementById('auth-view');
