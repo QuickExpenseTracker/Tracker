@@ -408,6 +408,13 @@ export const initUI = () => {
 
     document.getElementById('add-expense-btn').addEventListener('click', () => openModal(els.expenseModal));
     
+    document.getElementById('switch-key-btn').addEventListener('click', () => {
+        document.getElementById('main-view').classList.add('hidden');
+        els.householdView.classList.remove('hidden');
+        els.householdInput.value = state.householdToken;
+        els.keyError.classList.add('hidden');
+    });
+
     els.saveKeyBtn.addEventListener('click', () => {
         const key = els.householdInput.value.trim();
         if (key.length < 3) {
