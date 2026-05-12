@@ -56,18 +56,25 @@ body {
     background: white;
     color: #1e293b;
     border: none;
-    padding: 0.75rem;
+    padding: 0.6rem;
     border-radius: 12px;
     font-weight: 600;
+    font-size: 0.9rem;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 10px;
+    gap: 12px;
     cursor: pointer;
-    transition: transform 0.2s;
+    transition: all 0.2s;
+    border: 1px solid rgba(0,0,0,0.1);
 }
 
-.btn-google:active { transform: scale(0.98); }
+.btn-google img {
+    width: 20px;
+    height: 20px;
+}
+
+.btn-google:active { transform: scale(0.98); background: #f8fafc; }
 
 /* Main UI Header */
 .main-header {
