@@ -130,9 +130,17 @@ export const api = {
         return response.ok;
     },
 
-    async fetchLogs(userId) {
-        const response = await fetch(`${URL}/rest/v1/activity_log?created_by=eq.${userId}&order=timestamp.desc&limit=50`, { headers });
+    async fetchLogs({ userId, page = 1, limit = 20 }) {
+        const offset = (page - 1) * limit;
+        const response = await fetch(`${URL}/rest/v1/activity_log?created_by=eq.${userId}&order=timestamp.desc&limit=${limit}&offset=${offset}`, { headers });
         if (!response.ok) throw new Error('Failed to fetch logs');
-        return await response.json();
+        
+        const countHeader = response.headers.get('content-range');
+        const totalCount = countHeader ? parseInt(countHeader.split('/')[1]) : 0;
+        
+        return {
+            data: await response.json(),
+            totalCount
+        };
     }
 };

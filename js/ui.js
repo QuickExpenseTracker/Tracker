@@ -13,7 +13,9 @@ let state = {
     view: 'expenses',
     expenses: [],
     totalCount: 0,
-    chart: null
+    chart: null,
+    logPage: 1,
+    logTotalCount: 0
 };
 
 // Elements
@@ -29,6 +31,9 @@ const els = {
     expenseForm: document.getElementById('expense-form'),
     categoryBreakdown: document.getElementById('category-breakdown'),
     activityList: document.getElementById('activity-list'),
+    logPageInfo: document.getElementById('log-page-info'),
+    prevLogsBtn: document.getElementById('prev-logs'),
+    nextLogsBtn: document.getElementById('next-logs'),
     loadingOverlay: document.getElementById('loading-overlay')
 };
 
@@ -234,9 +239,16 @@ export const renderLogs = async () => {
     const user = getCurrentUser();
     if (!user) return;
     try {
-        const logs = await api.fetchLogs(user.email);
-        els.activityList.innerHTML = logs.length 
-            ? logs.map(log => `
+        const { data, totalCount } = await api.fetchLogs({
+            userId: user.email,
+            page: state.logPage,
+            limit: 20
+        });
+        
+        state.logTotalCount = totalCount;
+        
+        els.activityList.innerHTML = data.length 
+            ? data.map(log => `
                 <div class="log-item">
                     <div class="log-header">
                         <span class="log-action ${log.action_type}">${log.action_type}</span>
@@ -248,9 +260,18 @@ export const renderLogs = async () => {
                 </div>
             `).join('')
             : '<p class="empty-state">No activity logs yet.</p>';
+            
+        updateLogPagination();
     } catch (error) {
         console.error('Logs error:', error);
     }
+};
+
+const updateLogPagination = () => {
+    const totalPages = Math.ceil(state.logTotalCount / 20) || 1;
+    els.logPageInfo.textContent = `Page ${state.logPage} of ${totalPages}`;
+    els.prevLogsBtn.disabled = state.logPage <= 1;
+    els.nextLogsBtn.disabled = state.logPage >= totalPages;
 };
 
 // Events
@@ -329,6 +350,22 @@ export const initUI = () => {
         if (state.page < totalPages) {
             state.page++;
             renderExpenses();
+        }
+    });
+
+    // Log Pagination
+    els.prevLogsBtn.addEventListener('click', () => {
+        if (state.logPage > 1) {
+            state.logPage--;
+            renderLogs();
+        }
+    });
+
+    els.nextLogsBtn.addEventListener('click', () => {
+        const totalPages = Math.ceil(state.logTotalCount / 20);
+        if (state.logPage < totalPages) {
+            state.logPage++;
+            renderLogs();
         }
     });
 
