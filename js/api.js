@@ -1,10 +1,10 @@
 import { CONFIG } from './config.js';
 
-const { URL, ANON_KEY } = CONFIG.SUPABASE;
+const { URL, SERVICE_ROLE } = CONFIG.SUPABASE;
 
 const headers = {
-    'apikey': ANON_KEY,
-    'Authorization': `Bearer ${ANON_KEY}`,
+    'apikey': SERVICE_ROLE,
+    'Authorization': `Bearer ${SERVICE_ROLE}`,
     'Content-Type': 'application/json',
     'Prefer': 'return=representation'
 };
