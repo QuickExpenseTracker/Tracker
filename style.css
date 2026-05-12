@@ -157,6 +157,21 @@ body {
 
 .sum-card .label { font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase; font-weight: 600; }
 .sum-card .value { font-size: 1.4rem; font-weight: 800; color: #fff; margin-top: 4px; }
+.sum-value-row { display: flex; align-items: baseline; gap: 10px; }
+.diff-badge { font-size: 0.7rem; font-weight: 700; padding: 2px 6px; border-radius: 4px; }
+.diff-badge.up { background: rgba(239, 68, 68, 0.1); color: #f87171; }
+.diff-badge.down { background: rgba(34, 197, 94, 0.1); color: #4ade80; }
+.diff-label { font-size: 0.65rem; color: var(--text-dim); margin-top: 2px; }
+
+/* Analytics Chart */
+.chart-container-card {
+    background: var(--card-bg);
+    padding: 1.5rem;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    margin-bottom: 1.5rem;
+    height: 250px;
+}
 
 /* Controls Grid */
 .controls-grid {

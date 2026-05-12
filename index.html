@@ -10,6 +10,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
     <div id="app-container">
@@ -48,20 +49,32 @@
             </nav>
 
             <main class="content">
-                <!-- Summary Section -->
-                <section class="quick-summary">
-                    <div class="sum-card">
-                        <span class="label">This Month</span>
-                        <span id="total-month" class="value">₹0</span>
-                    </div>
-                    <div class="sum-card">
-                        <span class="label">Spent Today</span>
-                        <span id="total-today" class="value">₹0</span>
-                    </div>
-                </section>
-
                 <!-- Filters Area -->
                 <div id="expenses-tab" class="tab-pane active">
+                    <!-- Summary Section -->
+                    <section class="quick-summary">
+                        <div class="sum-card">
+                            <span class="label">This Month</span>
+                            <div class="sum-value-row">
+                                <span id="total-month" class="value">₹0</span>
+                                <span id="month-diff" class="diff-badge">--</span>
+                            </div>
+                            <span class="diff-label">vs Last Month</span>
+                        </div>
+                        <div class="sum-card">
+                            <span class="label">Spent Today</span>
+                            <div class="sum-value-row">
+                                <span id="total-today" class="value">₹0</span>
+                                <span id="today-diff" class="diff-badge">--</span>
+                            </div>
+                            <span class="diff-label">vs Yesterday</span>
+                        </div>
+                    </section>
+                    
+                    <!-- Analytics Chart -->
+                    <div class="chart-container-card">
+                        <canvas id="expense-chart"></canvas>
+                    </div>
                     <div class="controls-grid">
                         <div class="search-box">
                             <i class="fas fa-search"></i>
