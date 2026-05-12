@@ -129,6 +129,9 @@ body {
     border-bottom-color: var(--primary);
 }
 
+.tab-pane { display: none; }
+.tab-pane.active { display: block; }
+
 /* Content Area */
 .content {
     max-width: 500px;
@@ -282,8 +285,9 @@ body {
     max-width: 500px;
     padding: 2rem;
     border-radius: 24px 24px 0 0;
-    animation: slideUp 0.3s ease-out;
 }
+
+.tab-pane.active { animation: slideUp 0.4s ease-out; }
 
 @keyframes slideUp {
     from { transform: translateY(100%); }
