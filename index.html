@@ -3,22 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Expense Tracker | Simple & Fast</title>
-    <meta name="description" content="A simple, fast, and mobile-friendly expense tracker for daily household use.">
+    <title>Expense Tracker | Premium Dashboard</title>
+    <meta name="description" content="A premium, fast, and mobile-friendly expense tracker.">
     <link rel="stylesheet" href="./style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
-    <div id="app">
+    <div id="app-container">
         <!-- Auth View -->
         <section id="auth-view" class="view hidden">
             <div class="auth-card">
-                <h1>Welcome Back</h1>
-                <p>Track your daily expenses effortlessly.</p>
-                <button id="login-btn" class="btn btn-primary btn-lg">
+                <div class="auth-icon">💰</div>
+                <h1>Expense Tracker</h1>
+                <p>Manage your daily expenses with ease.</p>
+                <button id="login-btn" class="btn-google">
                     <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google">
                     Sign in with Google
                 </button>
@@ -27,179 +28,163 @@
 
         <!-- Main View -->
         <section id="main-view" class="view hidden">
-            <header class="app-header">
+            <header class="main-header">
                 <div class="header-content">
-                    <div class="user-info">
-                        <span id="user-name">Welcome, User</span>
+                    <div class="brand">
+                        <span class="logo">💰</span>
+                        <div class="brand-text">
+                            <span class="title">Tracker</span>
+                            <span id="user-name" class="subtitle">Welcome, User</span>
+                        </div>
                     </div>
-                    <button id="logout-btn" class="btn btn-outline btn-sm">Logout</button>
+                    <button id="logout-btn" class="btn-logout">Logout</button>
                 </div>
             </header>
 
-            <main class="container">
-                <!-- Dashboard Summary -->
-                <section class="dashboard-summary">
-                    <div class="summary-card">
-                        <h3>This Month</h3>
-                        <p id="total-month">₹0.00</p>
-                    </div>
-                    <div class="summary-card">
-                        <h3>Today</h3>
-                        <p id="total-today">₹0.00</p>
-                    </div>
-                </section>
+            <nav class="nav-tabs">
+                <button class="tab-btn active" data-tab="expenses">Expenses</button>
+                <button class="tab-btn" data-tab="reports">Reports</button>
+                <button class="tab-btn" data-tab="logs">Activity</button>
+            </nav>
 
-                <div class="action-bar">
-                    <button id="add-expense-btn" class="btn btn-primary">
-                        <i class="fas fa-plus"></i> Add Expense
-                    </button>
-                    <div class="search-container">
-                        <i class="fas fa-search"></i>
-                        <input type="text" id="search-input" placeholder="Search title...">
+            <main class="content">
+                <!-- Summary Section -->
+                <section class="quick-summary">
+                    <div class="sum-card">
+                        <span class="label">This Month</span>
+                        <span id="total-month" class="value">₹0</span>
                     </div>
-                </div>
-
-                <!-- Filters & Sorting -->
-                <section class="filters-section">
-                    <div class="filter-group">
-                        <select id="filter-category">
-                            <option value="">All Categories</option>
-                            <option value="Food">Food</option>
-                            <option value="Travel">Travel</option>
-                            <option value="Bills">Bills</option>
-                            <option value="Shopping">Shopping</option>
-                            <option value="Health">Health</option>
-                            <option value="Other">Other</option>
-                        </select>
-                        <input type="date" id="filter-date">
-                        <select id="sort-by">
-                            <option value="date-desc">Newest First</option>
-                            <option value="date-asc">Oldest First</option>
-                            <option value="amount-desc">Amount: High to Low</option>
-                            <option value="amount-asc">Amount: Low to High</option>
-                        </select>
+                    <div class="sum-card">
+                        <span class="label">Spent Today</span>
+                        <span id="total-today" class="value">₹0</span>
                     </div>
                 </section>
 
-                <!-- Tabs -->
-                <nav class="tabs">
-                    <button class="tab-btn active" data-tab="expenses">Expenses</button>
-                    <button class="tab-btn" data-tab="reports">Reports</button>
-                    <button class="tab-btn" data-tab="logs">Activity Log</button>
-                </nav>
-
-                <!-- Tab Content -->
-                <div id="tab-content">
-                    <!-- Expenses List -->
-                    <div id="expenses-tab" class="tab-pane active">
-                        <div id="expense-list" class="expense-list">
-                            <!-- Cards will be injected here -->
+                <!-- Filters Area -->
+                <div id="expenses-tab" class="tab-pane active">
+                    <div class="controls-grid">
+                        <div class="search-box">
+                            <i class="fas fa-search"></i>
+                            <input type="text" id="search-input" placeholder="Search expenses...">
                         </div>
-                        <div class="pagination">
-                            <button id="prev-page" class="btn btn-icon" disabled><i class="fas fa-chevron-left"></i></button>
-                            <span id="page-info">Page 1</span>
-                            <button id="next-page" class="btn btn-icon"><i class="fas fa-chevron-right"></i></button>
-                            <select id="items-per-page" class="select-sm">
-                                <option value="20">20 / page</option>
-                                <option value="50">50 / page</option>
-                                <option value="100">100 / page</option>
+                        <div class="filters-row">
+                            <select id="filter-category">
+                                <option value="">All Categories</option>
+                                <option value="Food">Food</option>
+                                <option value="Travel">Travel</option>
+                                <option value="Bills">Bills</option>
+                                <option value="Shopping">Shopping</option>
+                                <option value="Health">Health</option>
+                                <option value="Other">Other</option>
+                            </select>
+                            <input type="date" id="filter-date">
+                            <select id="sort-by">
+                                <option value="date-desc">Newest First</option>
+                                <option value="date-asc">Oldest First</option>
+                                <option value="amount-desc">Highest Price</option>
+                                <option value="amount-asc">Lowest Price</option>
                             </select>
                         </div>
                     </div>
 
-                    <!-- Reports View -->
-                    <div id="reports-tab" class="tab-pane">
-                        <div class="reports-container">
-                            <div class="report-header">
-                                <h2>Monthly Report</h2>
-                                <button id="export-csv" class="btn btn-outline btn-sm">
-                                    <i class="fas fa-file-csv"></i> Export visible to CSV
-                                </button>
-                            </div>
-                            <div id="category-breakdown" class="breakdown-list">
-                                <!-- Breakdown injected here -->
-                            </div>
-                        </div>
+                    <div id="expense-list" class="expense-cards-container">
+                        <!-- Items injected here -->
                     </div>
 
-                    <!-- Activity Logs View -->
-                    <div id="logs-tab" class="tab-pane">
-                        <div class="logs-container">
-                            <div id="activity-list" class="activity-list">
-                                <!-- Logs injected here -->
-                            </div>
-                        </div>
+                    <div class="pagination-bar">
+                        <button id="prev-page" class="p-btn"><i class="fas fa-chevron-left"></i></button>
+                        <span id="page-info">Page 1</span>
+                        <button id="next-page" class="p-btn"><i class="fas fa-chevron-right"></i></button>
+                        <select id="items-per-page">
+                            <option value="20">20 / page</option>
+                            <option value="50">50 / page</option>
+                        </select>
                     </div>
                 </div>
+
+                <!-- Reports Tab -->
+                <div id="reports-tab" class="tab-pane">
+                    <div class="report-view">
+                        <div class="report-header">
+                            <h2>Monthly Breakdown</h2>
+                            <button id="export-csv" class="btn-action">Export CSV</button>
+                        </div>
+                        <div id="category-breakdown" class="breakdown-list"></div>
+                    </div>
+                </div>
+
+                <!-- Logs Tab -->
+                <div id="logs-tab" class="tab-pane">
+                    <div id="activity-list" class="logs-list"></div>
+                </div>
             </main>
+
+            <!-- Floating Action Button -->
+            <button id="add-expense-btn" class="fab">+</button>
         </section>
 
-        <!-- Expense Modal -->
+        <!-- Modals -->
         <div id="expense-modal" class="modal">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h2 id="modal-title">Add Expense</h2>
+            <div class="modal-box">
+                <div class="modal-head">
+                    <h2 id="modal-title">New Expense</h2>
                     <button class="close-modal">&times;</button>
                 </div>
                 <form id="expense-form">
                     <input type="hidden" id="expense-id">
-                    <div class="form-group">
-                        <label for="title">Title*</label>
-                        <input type="text" id="title" required placeholder="e.g. Grocery shopping">
+                    <div class="input-group">
+                        <label>What did you buy?*</label>
+                        <input type="text" id="title" required placeholder="Grocery, Coffee, etc.">
                     </div>
-                    <div class="form-group">
-                        <label for="amount">Amount*</label>
-                        <input type="number" id="amount" required step="0.01" min="0.01" placeholder="0.00">
+                    <div class="input-row">
+                        <div class="input-group">
+                            <label>Amount (₹)*</label>
+                            <input type="number" id="amount" required step="0.01" min="0.01">
+                        </div>
+                        <div class="input-group">
+                            <label>Category*</label>
+                            <select id="category" required>
+                                <option value="Food">Food</option>
+                                <option value="Travel">Travel</option>
+                                <option value="Bills">Bills</option>
+                                <option value="Shopping">Shopping</option>
+                                <option value="Health">Health</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <label for="category">Category*</label>
-                        <select id="category" required>
-                            <option value="Food">Food</option>
-                            <option value="Travel">Travel</option>
-                            <option value="Bills">Bills</option>
-                            <option value="Shopping">Shopping</option>
-                            <option value="Health">Health</option>
-                            <option value="Other">Other</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="date">Date*</label>
+                    <div class="input-group">
+                        <label>Date*</label>
                         <input type="date" id="date" required>
                     </div>
-                    <div class="form-group">
-                        <label for="notes">Notes (Optional)</label>
-                        <textarea id="notes" rows="3" placeholder="Add some details..."></textarea>
+                    <div class="input-group">
+                        <label>Notes</label>
+                        <textarea id="notes" rows="2" placeholder="Any details?"></textarea>
                     </div>
-                    <div class="form-actions">
-                        <button type="button" class="btn btn-outline close-modal">Cancel</button>
-                        <button type="submit" id="save-expense" class="btn btn-primary">Save Expense</button>
+                    <div class="modal-footer">
+                        <button type="button" class="btn-cancel close-modal">Cancel</button>
+                        <button type="submit" class="btn-save">Save Expense</button>
                     </div>
                 </form>
             </div>
         </div>
 
-        <!-- Delete Confirmation Modal -->
+        <!-- Delete Modal -->
         <div id="delete-modal" class="modal">
-            <div class="modal-content sm">
-                <h2>Delete Expense?</h2>
-                <p>Are you sure you want to delete this expense? This action cannot be undone.</p>
-                <div class="form-actions">
-                    <button class="btn btn-outline close-modal">Cancel</button>
-                    <button id="confirm-delete" class="btn btn-danger">Delete</button>
+            <div class="modal-box mini">
+                <h2>Delete?</h2>
+                <p>Are you sure you want to remove this record?</p>
+                <div class="modal-footer">
+                    <button class="btn-cancel close-modal">No, Keep it</button>
+                    <button id="confirm-delete" class="btn-delete">Yes, Delete</button>
                 </div>
             </div>
         </div>
 
-        <!-- Toast Notification -->
         <div id="toast-container"></div>
-
-        <!-- Loading Overlay -->
-        <div id="loading-overlay" class="hidden">
-            <div class="spinner"></div>
-        </div>
+        <div id="loading-overlay" class="hidden"><div class="loader"></div></div>
     </div>
 
-    <!-- Scripts -->
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
     <script type="module" src="js/app.js"></script>
