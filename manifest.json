@@ -10,7 +10,7 @@
   "icons": [
     {
       "src": "https://www.gstatic.com/images/branding/product/1x/keep_48dp.png",
-      "sizes": "192x192",
+      "sizes": "48x48",
       "type": "image/png",
       "purpose": "any maskable"
     },
