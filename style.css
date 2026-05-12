@@ -309,6 +309,15 @@ body {
     border-radius: 24px 24px 0 0;
 }
 
+.modal-box.mini {
+    text-align: center;
+    border-radius: 24px;
+    margin-bottom: auto;
+    margin-top: auto;
+    padding: 2.5rem 2rem;
+    width: 90%;
+}
+
 .tab-pane.active { animation: slideUp 0.4s ease-out; }
 
 @keyframes slideUp {
@@ -336,8 +345,28 @@ body {
 
 .modal-footer { display: flex; gap: 1rem; margin-top: 1rem; }
 .btn-save { flex: 2; background: var(--primary); border: none; color: white; padding: 0.8rem; border-radius: 12px; font-weight: 700; cursor: pointer; }
-.btn-cancel { flex: 1; background: rgba(255, 255, 255, 0.05); border: none; color: var(--text-dim); padding: 0.8rem; border-radius: 12px; font-weight: 600; cursor: pointer; }
-.btn-delete { width: 100%; background: var(--danger); border: none; color: white; padding: 0.8rem; border-radius: 12px; font-weight: 700; cursor: pointer; }
+
+.btn-delete { 
+    flex: 1; 
+    background: var(--danger); 
+    color: white; 
+    border: none; 
+    padding: 1rem; 
+    border-radius: 14px; 
+    font-weight: 700; 
+    cursor: pointer;
+}
+
+.btn-cancel { 
+    flex: 1; 
+    background: rgba(255, 255, 255, 0.05); 
+    color: var(--text-dim); 
+    border: none; 
+    padding: 1rem; 
+    border-radius: 14px; 
+    font-weight: 600; 
+    cursor: pointer;
+}
 
 /* Pagination */
 .pagination-bar { display: flex; align-items: center; justify-content: center; gap: 1rem; margin-top: 2rem; }
