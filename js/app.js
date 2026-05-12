@@ -12,16 +12,22 @@ const onAuthStateChanged = (user) => {
     setLoading(false);
     if (user) {
         authView.classList.add('hidden');
-        mainView.classList.remove('hidden');
-        userNameSpan.textContent = `Welcome, ${user.displayName || user.email}`;
         
-        // Initial load
-        renderExpenses();
-        renderSummary();
-        renderAnalytics();
+        // Check if household key is already set
+        const savedKey = localStorage.getItem('household_token');
+        if (savedKey) {
+            mainView.classList.remove('hidden');
+            userNameSpan.textContent = `Welcome, ${user.displayName || user.email}`;
+            renderExpenses();
+            renderSummary();
+            renderAnalytics();
+        } else {
+            document.getElementById('household-view').classList.remove('hidden');
+        }
     } else {
         authView.classList.remove('hidden');
         mainView.classList.add('hidden');
+        document.getElementById('household-view').classList.add('hidden');
     }
 };
 

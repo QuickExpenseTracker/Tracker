@@ -15,7 +15,8 @@ let state = {
     totalCount: 0,
     chart: null,
     logPage: 1,
-    logTotalCount: 0
+    logTotalCount: 0,
+    householdToken: localStorage.getItem('household_token') || ''
 };
 
 // Elements
@@ -34,6 +35,11 @@ const els = {
     logPageInfo: document.getElementById('log-page-info'),
     prevLogsBtn: document.getElementById('prev-logs'),
     nextLogsBtn: document.getElementById('next-logs'),
+    nextLogsBtn: document.getElementById('next-logs'),
+    householdView: document.getElementById('household-view'),
+    householdInput: document.getElementById('household-key-input'),
+    saveKeyBtn: document.getElementById('save-key-btn'),
+    keyError: document.getElementById('key-error'),
     loadingOverlay: document.getElementById('loading-overlay')
 };
 
@@ -68,10 +74,9 @@ const saveState = () => {
 
 // Rendering
 export const renderSummary = async () => {
-    const user = getCurrentUser();
-    if (!user) return;
+    if (!state.householdToken) return;
     try {
-        const { totalMonth, totalToday, breakdown } = await api.getSummary(user.email);
+        const { totalMonth, totalToday, breakdown } = await api.getSummary(state.householdToken);
         els.totalMonth.textContent = formatCurrency(totalMonth);
         els.totalToday.textContent = formatCurrency(totalToday);
         
@@ -143,14 +148,13 @@ const renderChart = (dailyTotals) => {
 };
 
 export const renderAnalytics = async () => {
-    const user = getCurrentUser();
-    if (!user) return;
+    if (!state.householdToken) return;
     
     try {
-        const { totalLastMonth, totalYesterday, dailyTotals } = await api.getComparison(user.email);
+        const { totalLastMonth, totalYesterday, dailyTotals } = await api.getComparison(state.householdToken);
         
         // Month comparison
-        const monthRes = await api.getSummary(user.email);
+        const monthRes = await api.getSummary(state.householdToken);
         const thisMonthTotal = monthRes.totalMonth;
         const monthDiff = thisMonthTotal - totalLastMonth;
         const monthPerc = totalLastMonth ? (monthDiff / totalLastMonth * 100).toFixed(0) : (thisMonthTotal ? 100 : 0);
@@ -176,13 +180,12 @@ export const renderAnalytics = async () => {
 };
 
 export const renderExpenses = async () => {
-    const user = getCurrentUser();
-    if (!user) return;
+    if (!state.householdToken) return;
     
     setLoading(true);
     try {
         const { data, totalCount } = await api.fetchExpenses({
-            userId: user.email,
+            householdId: state.householdToken,
             page: state.page,
             limit: state.limit,
             search: state.search,
@@ -236,11 +239,10 @@ const updatePagination = () => {
 };
 
 export const renderLogs = async () => {
-    const user = getCurrentUser();
-    if (!user) return;
+    if (!state.householdToken) return;
     try {
         const { data, totalCount } = await api.fetchLogs({
-            userId: user.email,
+            householdId: state.householdToken,
             page: state.logPage,
             limit: 20
         });
@@ -406,6 +408,21 @@ export const initUI = () => {
 
     document.getElementById('add-expense-btn').addEventListener('click', () => openModal(els.expenseModal));
     
+    els.saveKeyBtn.addEventListener('click', () => {
+        const key = els.householdInput.value.trim();
+        if (key.length < 3) {
+            els.keyError.classList.remove('hidden');
+            return;
+        }
+        state.householdToken = key;
+        localStorage.setItem('household_token', key);
+        els.householdView.classList.add('hidden');
+        document.getElementById('main-view').classList.remove('hidden');
+        renderExpenses();
+        renderAnalytics();
+        showToast('Access Granted!');
+    });
+
     document.querySelectorAll('.close-modal').forEach(btn => {
         btn.addEventListener('click', (e) => {
             closeModal(e.target.closest('.modal'));
@@ -435,7 +452,8 @@ export const initUI = () => {
             category: document.getElementById('category').value,
             date: document.getElementById('date').value,
             notes: document.getElementById('notes').value.trim(),
-            created_by: user.email
+            created_by: user.email,
+            household_token: state.householdToken
         };
 
         if (!expense.title || expense.amount <= 0) {
@@ -461,7 +479,8 @@ export const initUI = () => {
                     action_type: 'updated',
                     item_title: expense.title,
                     user_name: user.displayName || user.email,
-                    created_by: user.email
+                    created_by: user.email,
+                    household_token: state.householdToken
                 });
                 showToast('Expense updated!');
             } else {
@@ -470,7 +489,8 @@ export const initUI = () => {
                     action_type: 'added',
                     item_title: expense.title,
                     user_name: user.displayName || user.email,
-                    created_by: user.email
+                    created_by: user.email,
+                    household_token: state.householdToken
                 });
                 showToast('Expense added!');
             }
@@ -499,7 +519,8 @@ export const initUI = () => {
                     action_type: 'deleted',
                     item_title: expense.title,
                     user_name: user.displayName || user.email,
-                    created_by: user.email
+                    created_by: user.email,
+                    household_token: state.householdToken
                 });
             }
             showToast('Expense deleted!');

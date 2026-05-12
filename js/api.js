@@ -10,9 +10,9 @@ const headers = {
 };
 
 export const api = {
-    async fetchExpenses({ userId, page = 1, limit = 20, search = '', category = '', date = '', sortBy = 'date-desc' }) {
+    async fetchExpenses({ householdId, page = 1, limit = 20, search = '', category = '', date = '', sortBy = 'date-desc' }) {
         const offset = (page - 1) * limit;
-        let query = `${URL}/rest/v1/expenses?created_by=eq.${userId}&select=*&limit=${limit}&offset=${offset}`;
+        let query = `${URL}/rest/v1/expenses?household_token=eq.${householdId}&select=*&limit=${limit}&offset=${offset}`;
 
         if (search) query += `&title=ilike.*${search}*`;
         if (category) query += `&category=eq.${category}`;
@@ -62,23 +62,23 @@ export const api = {
         return true;
     },
 
-    async getSummary(userId) {
+    async getSummary(householdId) {
         const now = new Date();
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
         const today = now.toISOString().split('T')[0];
 
         // Month total
-        const monthRes = await fetch(`${URL}/rest/v1/expenses?created_by=eq.${userId}&date=gte.${startOfMonth}&select=amount`, { headers });
+        const monthRes = await fetch(`${URL}/rest/v1/expenses?household_token=eq.${householdId}&date=gte.${startOfMonth}&select=amount`, { headers });
         const monthData = await monthRes.json();
         const totalMonth = monthData.reduce((sum, item) => sum + parseFloat(item.amount), 0);
 
         // Today total
-        const todayRes = await fetch(`${URL}/rest/v1/expenses?created_by=eq.${userId}&date=eq.${today}&select=amount`, { headers });
+        const todayRes = await fetch(`${URL}/rest/v1/expenses?household_token=eq.${householdId}&date=eq.${today}&select=amount`, { headers });
         const todayData = await todayRes.json();
         const totalToday = todayData.reduce((sum, item) => sum + parseFloat(item.amount), 0);
 
         // Category breakdown
-        const categoryRes = await fetch(`${URL}/rest/v1/expenses?created_by=eq.${userId}&date=gte.${startOfMonth}&select=category,amount`, { headers });
+        const categoryRes = await fetch(`${URL}/rest/v1/expenses?household_token=eq.${householdId}&date=gte.${startOfMonth}&select=category,amount`, { headers });
         const categoryData = await categoryRes.json();
         const breakdown = categoryData.reduce((acc, item) => {
             acc[item.category] = (acc[item.category] || 0) + parseFloat(item.amount);
@@ -88,7 +88,7 @@ export const api = {
         return { totalMonth, totalToday, breakdown };
     },
 
-    async getComparison(userId) {
+    async getComparison(householdId) {
         const now = new Date();
         const startOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
         const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().split('T')[0];
@@ -99,18 +99,18 @@ export const api = {
         const yesterdayStr = yesterday.toISOString().split('T')[0];
 
         // Last month total
-        const lastMonthRes = await fetch(`${URL}/rest/v1/expenses?created_by=eq.${userId}&date=gte.${startOfLastMonth}&date=lte.${endOfLastMonth}&select=amount`, { headers });
+        const lastMonthRes = await fetch(`${URL}/rest/v1/expenses?household_token=eq.${householdId}&date=gte.${startOfLastMonth}&date=lte.${endOfLastMonth}&select=amount`, { headers });
         const lastMonthData = await lastMonthRes.json();
         const totalLastMonth = lastMonthData.reduce((sum, item) => sum + parseFloat(item.amount), 0);
 
         // Yesterday total
-        const yesterdayRes = await fetch(`${URL}/rest/v1/expenses?created_by=eq.${userId}&date=eq.${yesterdayStr}&select=amount`, { headers });
+        const yesterdayRes = await fetch(`${URL}/rest/v1/expenses?household_token=eq.${householdId}&date=eq.${yesterdayStr}&select=amount`, { headers });
         const yesterdayData = await yesterdayRes.json();
         const totalYesterday = yesterdayData.reduce((sum, item) => sum + parseFloat(item.amount), 0);
 
         // Daily data for the current month chart
         const startOfMonthStr = startOfThisMonth.toISOString().split('T')[0];
-        const chartRes = await fetch(`${URL}/rest/v1/expenses?created_by=eq.${userId}&date=gte.${startOfMonthStr}&select=date,amount&order=date.asc`, { headers });
+        const chartRes = await fetch(`${URL}/rest/v1/expenses?household_token=eq.${householdId}&date=gte.${startOfMonthStr}&select=date,amount&order=date.asc`, { headers });
         const chartDataRaw = await chartRes.json();
         
         const dailyTotals = chartDataRaw.reduce((acc, item) => {
@@ -130,9 +130,9 @@ export const api = {
         return response.ok;
     },
 
-    async fetchLogs({ userId, page = 1, limit = 20 }) {
+    async fetchLogs({ householdId, page = 1, limit = 20 }) {
         const offset = (page - 1) * limit;
-        const response = await fetch(`${URL}/rest/v1/activity_log?created_by=eq.${userId}&order=timestamp.desc&limit=${limit}&offset=${offset}`, { headers });
+        const response = await fetch(`${URL}/rest/v1/activity_log?household_token=eq.${householdId}&order=timestamp.desc&limit=${limit}&offset=${offset}`, { headers });
         if (!response.ok) throw new Error('Failed to fetch logs');
         
         const countHeader = response.headers.get('content-range');
