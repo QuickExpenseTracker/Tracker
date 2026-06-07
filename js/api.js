@@ -196,11 +196,13 @@ export const api = {
         return data.length ? data[0] : null;
     },
 
-    async updateSettings(householdId, budget, shoppingThreshold) {
+    async updateSettings(householdId, budget, shoppingThreshold, savingsGoal, reportEmail) {
         const payload = { 
             household_token: householdId, 
             monthly_budget: budget, 
             shopping_threshold: shoppingThreshold,
+            savings_goal: savingsGoal || 0,
+            report_email: reportEmail || null,
             updated_at: new Date().toISOString() 
         };
         const response = await fetch(`${URL}/rest/v1/household_settings`, {
@@ -275,5 +277,70 @@ export const api = {
         });
         if (!response.ok) throw new Error('Failed to delete recurring expense');
         return true;
+    },
+
+    // --- Day-of-Week Spending Patterns ---
+    async getDayOfWeekData(householdId, numMonths = 3) {
+        const now = new Date();
+        const startDate = new Date(now.getFullYear(), now.getMonth() - numMonths, 1).toISOString().split('T')[0];
+        const endDate = now.toISOString().split('T')[0];
+        
+        const response = await fetch(`${URL}/rest/v1/expenses?household_token=eq.${householdId}&date=gte.${startDate}&date=lte.${endDate}&select=date,amount`, { headers });
+        if (!response.ok) return Array(7).fill(0);
+        const data = await response.json();
+        
+        // Group sums and counts per day-of-week (0=Sun…6=Sat)
+        const sums = Array(7).fill(0);
+        const counts = Array(7).fill(0);
+        data.forEach(item => {
+            // Use local date parsing to avoid timezone shift on date-only strings
+            const parts = item.date.split('-');
+            const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+            const dow = d.getDay();
+            sums[dow] += parseFloat(item.amount);
+            counts[dow]++;
+        });
+        
+        // Average per occurrence day (not per week)
+        return sums.map((sum, i) => counts[i] ? Math.round(sum / counts[i]) : 0);
+    },
+
+    // --- Historical expense search for auto-fill ---
+    async fetchAllExpensesMeta(householdId, searchTerm) {
+        if (!searchTerm || searchTerm.length < 2) return [];
+        const response = await fetch(
+            `${URL}/rest/v1/expenses?household_token=eq.${householdId}&title=ilike.*${encodeURIComponent(searchTerm)}*&select=title,amount,category,notes&order=created_at.desc&limit=50`,
+            { headers }
+        );
+        if (!response.ok) return [];
+        const data = await response.json();
+        // Deduplicate by title (keep most recent)
+        const seen = new Set();
+        return data.filter(item => {
+            const key = item.title.toLowerCase();
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        }).slice(0, 5);
+    },
+
+    // --- Monthly Report Email via Edge Function ---
+    async sendMonthlyReport(householdId, monthStr, resendApiKey) {
+        const supabaseUrl = URL; // e.g. https://xxx.supabase.co
+        const edgeUrl = supabaseUrl.replace('/rest/v1', '') + '/functions/v1/send-monthly-report';
+        const response = await fetch(edgeUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'apikey': SERVICE_ROLE,
+                'Authorization': `Bearer ${SERVICE_ROLE}`
+            },
+            body: JSON.stringify({ householdId, monthStr, resendApiKey })
+        });
+        if (!response.ok) {
+            const err = await response.json().catch(() => ({}));
+            throw new Error(err.error || 'Failed to send report');
+        }
+        return await response.json();
     }
 };

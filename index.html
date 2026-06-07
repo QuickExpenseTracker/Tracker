@@ -66,6 +66,12 @@
                 <input type="month" id="global-month" class="month-picker">
             </div>
 
+            <!-- Budget Warning Banner -->
+            <div id="budget-warning-banner" class="budget-banner hidden">
+                <span id="banner-message">⚠️ Budget warning</span>
+                <button id="banner-dismiss" class="banner-close">×</button>
+            </div>
+
             <nav class="nav-tabs">
                 <button class="tab-btn active" data-tab="expenses">Expenses</button>
                 <button class="tab-btn" data-tab="recurring">Recurring</button>
@@ -176,6 +182,33 @@
                         <div class="chart-container-card" style="margin-bottom: 2rem;">
                             <canvas id="yearly-expense-chart"></canvas>
                         </div>
+
+                        <div class="report-header" style="margin-top: 0.5rem;">
+                            <h2>Day-of-Week Patterns</h2>
+                            <span id="dow-insight" style="font-size:0.78rem; color:#94a3b8;"></span>
+                        </div>
+                        <div class="chart-container-card" style="margin-bottom: 2rem;">
+                            <canvas id="day-of-week-chart"></canvas>
+                        </div>
+
+                        <div class="report-header" style="margin-top: 0.5rem;">
+                            <h2>Savings Progress</h2>
+                            <button id="send-report-btn" class="btn-action">📤 Email Report</button>
+                        </div>
+                        <div class="savings-card sum-card" style="margin-bottom: 2rem; align-items: center; padding: 1.5rem;">
+                            <div class="savings-ring-wrapper">
+                                <svg id="savings-ring" viewBox="0 0 120 120" width="120" height="120">
+                                    <circle class="ring-bg" cx="60" cy="60" r="50"/>
+                                    <circle id="ring-fill" class="ring-fill" cx="60" cy="60" r="50"/>
+                                    <text id="ring-center-text" x="60" y="55" text-anchor="middle" class="ring-label-top">₹0</text>
+                                    <text x="60" y="72" text-anchor="middle" class="ring-label-bot">saved</text>
+                                </svg>
+                            </div>
+                            <div style="margin-top:1rem; text-align:center;">
+                                <div id="savings-status" style="font-weight:600; font-size:0.95rem;">Set a savings goal in Settings</div>
+                                <div id="savings-sub" style="font-size:0.8rem; color:#94a3b8; margin-top:4px;"></div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -214,9 +247,10 @@
                 </div>
                 <form id="expense-form">
                     <input type="hidden" id="expense-id">
-                    <div class="input-group">
+                    <div class="input-group" style="position:relative;">
                         <label>What did you buy?*</label>
-                        <input type="text" id="title" required placeholder="Grocery, Coffee, etc.">
+                        <input type="text" id="title" required placeholder="Grocery, Coffee, etc." autocomplete="off">
+                        <div id="title-suggestions" class="suggestions-dropdown hidden"></div>
                     </div>
                     <div class="input-row">
                         <div class="input-group">
@@ -279,6 +313,21 @@
                         <label>Shopping Alert Threshold (₹)*</label>
                         <input type="number" id="shopping-threshold" required step="1" min="0" placeholder="e.g. 5000">
                         <small style="color: #94a3b8; font-size: 0.75rem; display:block; margin-top: 4px;">Alerts you if this month's shopping exceeds your past spending.</small>
+                    </div>
+                    <div class="input-group" style="text-align: left; margin-top: 1rem;">
+                        <label>Savings Goal (₹)</label>
+                        <input type="number" id="savings-goal" step="1" min="0" placeholder="e.g. 5000">
+                        <small style="color: #94a3b8; font-size: 0.75rem; display:block; margin-top: 4px;">Your monthly savings target (Budget − Spent).</small>
+                    </div>
+                    <div class="input-group" style="text-align: left; margin-top: 1rem;">
+                        <label>📤 Monthly Report Email</label>
+                        <input type="email" id="report-email" placeholder="you@example.com">
+                        <small style="color: #94a3b8; font-size: 0.75rem; display:block; margin-top: 4px;">Receive a monthly expense summary email.</small>
+                    </div>
+                    <div class="input-group" style="text-align: left; margin-top: 1rem;">
+                        <label>Resend API Key</label>
+                        <input type="password" id="resend-api-key" placeholder="re_xxxxxxxxxxxxxxxx">
+                        <small style="color: #94a3b8; font-size: 0.75rem; display:block; margin-top: 4px;">Your Resend.com API key — stored only in your browser.</small>
                     </div>
                     <div class="modal-footer">
                         <button type="submit" class="btn-save" style="width: 100%;">Save Settings</button>

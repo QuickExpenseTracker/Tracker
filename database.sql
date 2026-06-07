@@ -53,3 +53,8 @@ CREATE INDEX IF NOT EXISTS idx_recurring_household ON recurring_expenses(househo
 -- Migration for existing tables (Run these if tables already exist)
 -- ALTER TABLE expenses ADD COLUMN household_token TEXT;
 -- ALTER TABLE activity_log ADD COLUMN household_token TEXT;
+
+-- ── New columns added in Feature Wave 2 ──────────────────────
+-- Run these in Supabase SQL Editor if the tables already exist:
+ALTER TABLE household_settings ADD COLUMN IF NOT EXISTS savings_goal DECIMAL(10,2) NOT NULL DEFAULT 0;
+ALTER TABLE household_settings ADD COLUMN IF NOT EXISTS report_email TEXT;

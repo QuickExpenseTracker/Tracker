@@ -27,7 +27,12 @@ let state = {
     recurringExpenses: [],
     monthlyBudget: 0,
     shoppingThreshold: 5000,
-    yearlyChart: null
+    savingsGoal: 0,
+    reportEmail: '',
+    yearlyChart: null,
+    dowChart: null,
+    bannerDismissed: false,
+    activeTag: ''
 };
 
 // Elements
@@ -109,6 +114,119 @@ const saveState = () => {
 };
 
 // Rendering
+// ── Utility: Parse hashtags from notes ──────────────────────
+const parseTags = (notes) => {
+    if (!notes) return [];
+    const matches = notes.match(/#(\w+)/g);
+    return matches ? [...new Set(matches)] : [];
+};
+
+// ── Feature 1: Budget Warning Banner ────────────────────────
+const renderBudgetBanner = (perc, totalMonth, budget) => {
+    const banner = document.getElementById('budget-warning-banner');
+    const msg = document.getElementById('banner-message');
+    if (!banner || state.bannerDismissed) return;
+    
+    if (perc >= 100) {
+        banner.className = 'budget-banner critical';
+        msg.textContent = `🚨 Budget exceeded! Spent ${formatCurrency(totalMonth)} of ${formatCurrency(budget)} this month.`;
+        banner.classList.remove('hidden');
+    } else if (perc >= 80) {
+        banner.className = 'budget-banner warning';
+        msg.textContent = `⚠️ You've used ${perc.toFixed(0)}% of your budget. Only ${formatCurrency(budget - totalMonth)} remaining.`;
+        banner.classList.remove('hidden');
+    } else {
+        banner.classList.add('hidden');
+    }
+};
+
+// ── Feature 4: Savings Progress Ring ────────────────────────
+const renderSavingsRing = (totalMonth, budget, savingsGoal) => {
+    const ringFill = document.getElementById('ring-fill');
+    const centerText = document.getElementById('ring-center-text');
+    const statusEl = document.getElementById('savings-status');
+    const subEl = document.getElementById('savings-sub');
+    if (!ringFill) return;
+    
+    const CIRCUMFERENCE = 314.16; // 2π × 50
+    const saved = Math.max(0, budget - totalMonth);
+    
+    centerText.textContent = formatCurrency(saved);
+    
+    if (savingsGoal <= 0) {
+        ringFill.style.strokeDashoffset = CIRCUMFERENCE;
+        statusEl.textContent = 'Set a savings goal in Settings';
+        subEl.textContent = '';
+        return;
+    }
+    
+    const ratio = Math.min(saved / savingsGoal, 1);
+    const offset = CIRCUMFERENCE - ratio * CIRCUMFERENCE;
+    ringFill.style.strokeDashoffset = offset;
+    
+    if (saved <= 0) {
+        ringFill.style.stroke = '#ef4444';
+        statusEl.textContent = 'Over budget — ₹0 saved this month';
+        subEl.textContent = `Goal: ${formatCurrency(savingsGoal)}`;
+    } else if (ratio >= 1) {
+        ringFill.style.stroke = '#4ade80';
+        statusEl.textContent = `🎉 Savings goal reached!`;
+        subEl.textContent = `Saved ${formatCurrency(saved)} of ${formatCurrency(savingsGoal)}`;
+    } else {
+        ringFill.style.stroke = '#4ade80';
+        statusEl.textContent = `Saved ${formatCurrency(saved)} of ${formatCurrency(savingsGoal)}`;
+        subEl.textContent = `${(ratio * 100).toFixed(0)}% of your goal achieved`;
+    }
+};
+
+// ── Feature 5: Day-of-Week Chart ────────────────────────────
+export const renderDayOfWeekChart = async () => {
+    if (!state.householdToken) return;
+    try {
+        const avgByDow = await api.getDayOfWeekData(state.householdToken, 3);
+        // Re-order: Mon(1)…Sun(0) for a Mon-first display
+        const labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+        const values = [avgByDow[1], avgByDow[2], avgByDow[3], avgByDow[4], avgByDow[5], avgByDow[6], avgByDow[0]];
+        
+        const maxVal = Math.max(...values);
+        const bgColors = values.map(v => v === maxVal && maxVal > 0 ? '#f97316' : 'rgba(139,92,246,0.55)');
+        
+        const ctx = document.getElementById('day-of-week-chart').getContext('2d');
+        if (state.dowChart) state.dowChart.destroy();
+        
+        state.dowChart = new Chart(ctx, {
+            type: 'bar',
+            data: { labels, datasets: [{ data: values, backgroundColor: bgColors, borderRadius: 6, borderSkipped: false }] },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: { label: ctx => `Avg: ${formatCurrency(ctx.raw)}` },
+                        backgroundColor: '#1e293b',
+                        titleFont: { family: 'Outfit' },
+                        bodyFont: { family: 'Outfit' }
+                    }
+                },
+                scales: {
+                    x: { grid: { display: false }, ticks: { color: '#94a3b8', font: { size: 10 } } },
+                    y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8', font: { size: 10 } } }
+                }
+            }
+        });
+        
+        // Update insight text
+        const insight = document.getElementById('dow-insight');
+        if (insight && maxVal > 0) {
+            const maxIdx = values.indexOf(maxVal);
+            insight.textContent = `You spend most on ${labels[maxIdx]}s (avg ${formatCurrency(maxVal)})`;
+        }
+    } catch (err) {
+        console.error('Day-of-week chart error', err);
+    }
+};
+
 export const renderSummary = async () => {
     if (!state.householdToken) return;
     try {
@@ -116,6 +234,8 @@ export const renderSummary = async () => {
         if (settings) {
             state.monthlyBudget = parseFloat(settings.monthly_budget) || 0;
             state.shoppingThreshold = parseFloat(settings.shopping_threshold) || 5000;
+            state.savingsGoal = parseFloat(settings.savings_goal) || 0;
+            state.reportEmail = settings.report_email || '';
         }
 
         const { totalMonth, totalToday, breakdown } = await api.getSummary(state.householdToken, state.selectedMonth);
@@ -132,6 +252,7 @@ export const renderSummary = async () => {
                 if (perc < 80) els.budgetProgressFill.style.backgroundColor = '#4ade80';
                 else if (perc < 100) els.budgetProgressFill.style.backgroundColor = '#f97316';
                 else els.budgetProgressFill.style.backgroundColor = '#ef4444';
+                renderBudgetBanner(perc, totalMonth, state.monthlyBudget);
             } else {
                 els.budgetProgressFill.style.width = `0%`;
             }
@@ -148,6 +269,8 @@ export const renderSummary = async () => {
             : '<p class="empty-state">No data for this month.</p>';
 
         renderYearlyChart();
+        renderDayOfWeekChart();
+        renderSavingsRing(totalMonth, state.monthlyBudget, state.savingsGoal);
     } catch (error) {
         console.error('Summary error:', error);
     }
@@ -345,9 +468,43 @@ export const renderExpenses = async () => {
         
         state.expenses = data;
         state.totalCount = totalCount;
-        
-        els.expenseList.innerHTML = data.length 
-            ? data.map(item => `
+
+        // ── Feature 3: Tag filter chips row ──
+        const allTags = [];
+        data.forEach(item => parseTags(item.notes).forEach(t => { if (!allTags.includes(t)) allTags.push(t); }));
+        let tagFilterEl = document.getElementById('tag-filters');
+        if (!tagFilterEl) {
+            tagFilterEl = document.createElement('div');
+            tagFilterEl.id = 'tag-filters';
+            tagFilterEl.className = 'tag-filters';
+            els.expenseList.parentNode.insertBefore(tagFilterEl, els.expenseList);
+        }
+        if (allTags.length > 0) {
+            const clearBtn = state.activeTag ? `<span class="tag-pill active" data-tag="">✕ Clear</span>` : '';
+            tagFilterEl.innerHTML = clearBtn + allTags.map(t =>
+                `<span class="tag-pill ${t === state.activeTag ? 'active' : ''}" data-tag="${t}">${t}</span>`
+            ).join('');
+        } else {
+            tagFilterEl.innerHTML = '';
+        }
+        tagFilterEl.onclick = (e) => {
+            const pill = e.target.closest('.tag-pill');
+            if (!pill) return;
+            state.activeTag = pill.dataset.tag || '';
+            renderExpenses();
+        };
+
+        // ── Filter by active tag ──
+        const displayData = state.activeTag
+            ? data.filter(item => parseTags(item.notes).includes(state.activeTag))
+            : data;
+
+        // ── Render cards ──
+        els.expenseList.innerHTML = displayData.length
+            ? displayData.map(item => {
+                const tagPills = parseTags(item.notes);
+                const tagHtml = tagPills.map(t => `<span class="tag-pill" data-tag="${t}">${t}</span>`).join('');
+                return `
                 <div class="expense-card">
                     <div class="expense-info">
                         <div class="expense-title">${item.title}</div>
@@ -356,10 +513,12 @@ export const renderExpenses = async () => {
                             <span>${formatDate(item.date)}</span>
                         </div>
                         ${item.notes ? `<div class="expense-meta" style="margin-top:4px; font-style:italic">${item.notes}</div>` : ''}
+                        ${tagHtml ? `<div style="margin-top:5px;">${tagHtml}</div>` : ''}
                     </div>
                     <div class="expense-amount-actions">
                         <div class="expense-amount">${formatCurrency(item.amount)}</div>
                         <div class="expense-actions">
+                            <button class="clone-btn" data-id="${item.id}" title="Clone expense">📋</button>
                             <button class="btn btn-outline btn-sm edit-btn" data-id="${item.id}">
                                 <i class="fas fa-edit"></i>
                             </button>
@@ -369,7 +528,8 @@ export const renderExpenses = async () => {
                         </div>
                     </div>
                 </div>
-            `).join('')
+            `;
+            }).join('')
             : '<div class="empty-state">No expenses found</div>';
             
         updatePagination();
@@ -658,10 +818,27 @@ export const initUI = () => {
         modal.classList.remove('show');
     };
 
-    document.getElementById('add-expense-btn').addEventListener('click', () => openModal(els.expenseModal));
+    // Feature 1: Banner dismiss
+    document.getElementById('banner-dismiss').addEventListener('click', () => {
+        state.bannerDismissed = true;
+        document.getElementById('budget-warning-banner').classList.add('hidden');
+    });
+
+    document.getElementById('add-expense-btn').addEventListener('click', () => {
+        document.getElementById('expense-form').reset();
+        document.getElementById('expense-id').value = '';
+        document.getElementById('modal-title').textContent = 'New Expense';
+        document.getElementById('date').value = getTodayDate();
+        document.getElementById('title-suggestions').classList.add('hidden');
+        openModal(els.expenseModal);
+    });
+
     els.setBudgetBtn.addEventListener('click', () => {
         document.getElementById('budget-amount').value = state.monthlyBudget || '';
         document.getElementById('shopping-threshold').value = state.shoppingThreshold || 5000;
+        document.getElementById('savings-goal').value = state.savingsGoal || '';
+        document.getElementById('report-email').value = state.reportEmail || '';
+        document.getElementById('resend-api-key').value = localStorage.getItem('resend_api_key') || '';
         openModal(els.budgetModal);
     });
     els.addRecurringBtn.addEventListener('click', () => openModal(els.recurringModal));
@@ -694,16 +871,32 @@ export const initUI = () => {
         });
     });
 
-    // Event Delegation for List actions
+    // Event Delegation for List actions (edit, delete, clone)
     els.expenseList.addEventListener('click', (e) => {
         const editBtn = e.target.closest('.edit-btn');
         const deleteBtn = e.target.closest('.delete-btn');
+        const cloneBtn = e.target.closest('.clone-btn');
         
         if (editBtn) openModal(els.expenseModal, editBtn.dataset.id);
         if (deleteBtn) {
             window.deleteId = deleteBtn.dataset.id;
             window.deleteType = 'expense';
             els.deleteModal.classList.add('show');
+        }
+        // Feature 2: Clone expense
+        if (cloneBtn) {
+            const expense = state.expenses.find(exp => exp.id === cloneBtn.dataset.id);
+            if (expense) {
+                document.getElementById('modal-title').textContent = 'Clone Expense';
+                document.getElementById('expense-id').value = '';
+                document.getElementById('title').value = expense.title;
+                document.getElementById('amount').value = expense.amount;
+                document.getElementById('category').value = expense.category;
+                document.getElementById('date').value = getTodayDate();
+                document.getElementById('notes').value = expense.notes || '';
+                document.getElementById('title-suggestions').classList.add('hidden');
+                openModal(els.expenseModal);
+            }
         }
     });
 
@@ -732,33 +925,96 @@ export const initUI = () => {
         }
     });
 
-    // Auto-Categorization (Smart Feature)
-    document.getElementById('title').addEventListener('blur', (e) => {
-        const title = e.target.value.toLowerCase().trim();
-        if(!title) return;
-        const past = state.expenses.find(x => x.title.toLowerCase() === title);
-        if(past) {
-            document.getElementById('category').value = past.category;
+    // Feature 2: Smart Auto-fill title suggestions dropdown
+    const suggestionsEl = document.getElementById('title-suggestions');
+    let suggDebounceTimer = null;
+
+    document.getElementById('title').addEventListener('input', async (e) => {
+        clearTimeout(suggDebounceTimer);
+        const val = e.target.value.trim();
+        if (val.length < 2) { suggestionsEl.classList.add('hidden'); return; }
+
+        suggDebounceTimer = setTimeout(async () => {
+            const matches = await api.fetchAllExpensesMeta(state.householdToken, val);
+            if (!matches.length) { suggestionsEl.classList.add('hidden'); return; }
+            suggestionsEl.innerHTML = matches.map(m => `
+                <div class="suggestion-item" data-title="${m.title}" data-amount="${m.amount}" data-category="${m.category}" data-notes="${m.notes || ''}">
+                    <span>${m.title}</span>
+                    <span class="suggestion-meta">${m.category} &bull; ₹${parseFloat(m.amount).toFixed(0)}</span>
+                </div>`).join('');
+            suggestionsEl.classList.remove('hidden');
+        }, 300);
+    });
+
+    suggestionsEl.addEventListener('click', (e) => {
+        const item = e.target.closest('.suggestion-item');
+        if (!item) return;
+        document.getElementById('title').value = item.dataset.title;
+        document.getElementById('amount').value = item.dataset.amount;
+        document.getElementById('category').value = item.dataset.category;
+        if (item.dataset.notes) document.getElementById('notes').value = item.dataset.notes;
+        suggestionsEl.classList.add('hidden');
+    });
+
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('#title') && !e.target.closest('#title-suggestions')) {
+            suggestionsEl.classList.add('hidden');
         }
     });
 
-    // Form Submission: Settings (Budget + Shopping Threshold)
+    document.getElementById('title').addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') suggestionsEl.classList.add('hidden');
+    });
+
+    // Form Submission: Settings (all fields)
     els.budgetForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const amount = parseFloat(document.getElementById('budget-amount').value);
-        const shopThresh = parseFloat(document.getElementById('shopping-threshold').value);
-        if (amount < 0 || shopThresh < 0) return;
+        const amount = parseFloat(document.getElementById('budget-amount').value) || 0;
+        const shopThresh = parseFloat(document.getElementById('shopping-threshold').value) || 5000;
+        const savingsGoal = parseFloat(document.getElementById('savings-goal').value) || 0;
+        const reportEmail = document.getElementById('report-email').value.trim();
+        const resendKey = document.getElementById('resend-api-key').value.trim();
+
+        // Save Resend key only in localStorage (never sent to DB for security)
+        if (resendKey) localStorage.setItem('resend_api_key', resendKey);
+        else localStorage.removeItem('resend_api_key');
         
         setLoading(true);
         try {
-            await api.updateSettings(state.householdToken, amount, shopThresh);
+            await api.updateSettings(state.householdToken, amount, shopThresh, savingsGoal, reportEmail);
             state.monthlyBudget = amount;
             state.shoppingThreshold = shopThresh;
+            state.savingsGoal = savingsGoal;
+            state.reportEmail = reportEmail;
+            // Reset banner dismissed so it rechecks with new budget
+            state.bannerDismissed = false;
             showToast('Settings saved!');
             closeModal(els.budgetModal);
             renderSummary();
         } catch (err) {
             showToast('Error saving settings', true);
+        } finally {
+            setLoading(false);
+        }
+    });
+
+    // Feature 6: Send Monthly Report Email
+    document.getElementById('send-report-btn').addEventListener('click', async () => {
+        const resendKey = localStorage.getItem('resend_api_key');
+        if (!resendKey) {
+            showToast('Add your Resend API key in Settings first', true);
+            return;
+        }
+        if (!state.reportEmail) {
+            showToast('Add a report email address in Settings first', true);
+            return;
+        }
+        setLoading(true);
+        try {
+            await api.sendMonthlyReport(state.householdToken, state.selectedMonth, resendKey);
+            showToast('📧 Monthly report sent to ' + state.reportEmail);
+        } catch (err) {
+            showToast('Email failed: ' + err.message, true);
         } finally {
             setLoading(false);
         }
