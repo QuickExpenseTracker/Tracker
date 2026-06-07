@@ -110,7 +110,33 @@ body {
     cursor: pointer;
 }
 
-/* Nav Tabs */
+/* Nav Tabs & Global Controls */
+.global-controls {
+    max-width: 500px;
+    margin: 0 auto;
+    padding: 1rem 1.25rem 0 1.25rem;
+    display: flex;
+    justify-content: flex-end;
+    background: var(--card-bg);
+}
+
+.month-picker {
+    background: #0f172a;
+    border: 1px solid var(--border);
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 0.9rem;
+    outline: none;
+    cursor: pointer;
+}
+
+.month-picker::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+    cursor: pointer;
+}
+
 .nav-tabs {
     display: flex;
     max-width: 500px;

@@ -62,6 +62,10 @@
                 </div>
             </header>
 
+            <div class="global-controls">
+                <input type="month" id="global-month" class="month-picker">
+            </div>
+
             <nav class="nav-tabs">
                 <button class="tab-btn active" data-tab="expenses">Expenses</button>
                 <button class="tab-btn" data-tab="reports">Reports</button>
@@ -81,7 +85,7 @@
                             </div>
                             <span class="diff-label">vs Last Month</span>
                         </div>
-                        <div class="sum-card">
+                        <div class="sum-card" id="daily-summary-card">
                             <span class="label">Spent Today</span>
                             <div class="sum-value-row">
                                 <span id="total-today" class="value">₹0</span>
