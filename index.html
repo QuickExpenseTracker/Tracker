@@ -164,6 +164,18 @@
                             <button id="export-csv" class="btn-action">Export CSV</button>
                         </div>
                         <div id="category-breakdown" class="breakdown-list"></div>
+
+                        <div class="report-header" style="margin-top: 2rem;">
+                            <h2>Yearly Overview</h2>
+                            <select id="yearly-chart-year" class="input-group" style="padding: 4px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.1); background: #1e293b; color: white;">
+                                <option value="2026">2026</option>
+                                <option value="2025">2025</option>
+                                <option value="2024">2024</option>
+                            </select>
+                        </div>
+                        <div class="chart-container-card" style="margin-bottom: 2rem;">
+                            <canvas id="yearly-expense-chart"></canvas>
+                        </div>
                     </div>
                 </div>
 

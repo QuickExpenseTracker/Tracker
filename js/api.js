@@ -148,6 +148,24 @@ export const api = {
         return { totalLastMonth, totalYesterday, dailyTotals };
     },
 
+    async getYearlyData(householdId, year) {
+        const startOfYear = `${year}-01-01`;
+        const endOfYear = `${year}-12-31`;
+        const response = await fetch(`${URL}/rest/v1/expenses?household_token=eq.${householdId}&date=gte.${startOfYear}&date=lte.${endOfYear}&select=date,amount`, { headers });
+        if (!response.ok) throw new Error('Failed to fetch yearly data');
+        
+        const raw = await response.json();
+        // Group by month
+        const monthlyTotals = Array(12).fill(0);
+        raw.forEach(item => {
+            const date = new Date(item.date);
+            const monthIndex = date.getMonth(); // 0-11
+            monthlyTotals[monthIndex] += parseFloat(item.amount);
+        });
+        
+        return monthlyTotals;
+    },
+
     async addLog(log) {
         const response = await fetch(`${URL}/rest/v1/activity_log`, {
             method: 'POST',

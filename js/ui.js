@@ -25,7 +25,8 @@ let state = {
     householdToken: localStorage.getItem('household_token') || '',
     selectedMonth: getMonthStr(),
     recurringExpenses: [],
-    monthlyBudget: 0
+    monthlyBudget: 0,
+    yearlyChart: null
 };
 
 // Elements
@@ -60,7 +61,8 @@ const els = {
     budgetModal: document.getElementById('budget-modal'),
     budgetForm: document.getElementById('budget-form'),
     setBudgetBtn: document.getElementById('set-budget-btn'),
-    addRecurringBtn: document.getElementById('add-recurring-btn')
+    addRecurringBtn: document.getElementById('add-recurring-btn'),
+    yearlyChartYear: document.getElementById('yearly-chart-year')
 };
 
 // Persistence
@@ -131,8 +133,92 @@ export const renderSummary = async () => {
                 </div>
             `).join('')
             : '<p class="empty-state">No data for this month.</p>';
+
+        renderYearlyChart();
     } catch (error) {
         console.error('Summary error:', error);
+    }
+};
+
+export const renderYearlyChart = async () => {
+    if (!state.householdToken) return;
+    try {
+        const year = els.yearlyChartYear.value;
+        const monthlyTotals = await api.getYearlyData(state.householdToken, year);
+        const budgetThreshold = state.monthlyBudget || 0;
+
+        const ctx = document.getElementById('yearly-expense-chart').getContext('2d');
+        if (state.yearlyChart) {
+            state.yearlyChart.destroy();
+        }
+
+        const labels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        
+        const bgColors = monthlyTotals.map(amount => {
+            if (budgetThreshold > 0) {
+                if (amount > budgetThreshold) return '#ef4444'; // Red
+                // Due to floating point math, exact equality is rare, but if they hit it perfectly, use green.
+                // Otherwise use blue for under budget.
+                if (Math.abs(amount - budgetThreshold) < 0.01) return '#22c55e'; // Green
+                return '#0ea5e9'; // Blue
+            }
+            return '#0ea5e9'; // Blue by default
+        });
+
+        const datasets = [{
+            type: 'bar',
+            label: 'Monthly Expenses',
+            data: monthlyTotals,
+            backgroundColor: bgColors,
+            borderColor: '#1e293b',
+            borderWidth: 2,
+            borderRadius: 4
+        }];
+
+        if (budgetThreshold > 0) {
+            datasets.push({
+                type: 'line',
+                label: 'Budget Threshold',
+                data: Array(12).fill(budgetThreshold),
+                borderColor: '#ef4444',
+                borderWidth: 2,
+                borderDash: [5, 5],
+                pointRadius: 0,
+                fill: false,
+                order: 0
+            });
+        }
+
+        state.yearlyChart = new Chart(ctx, {
+            data: { labels, datasets },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false,
+                        backgroundColor: '#1e293b',
+                        titleFont: { family: 'Outfit' },
+                        bodyFont: { family: 'Outfit' }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { display: false },
+                        ticks: { color: '#94a3b8', font: { size: 10 } }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                        ticks: { color: '#94a3b8', font: { size: 10 } }
+                    }
+                }
+            }
+        });
+    } catch (err) {
+        console.error('Error rendering yearly chart', err);
     }
 };
 
@@ -446,6 +532,10 @@ export const initUI = () => {
         renderExpenses();
         renderSummary();
         renderAnalytics();
+    });
+
+    els.yearlyChartYear.addEventListener('change', () => {
+        renderYearlyChart();
     });
 
     // Filtering & Sorting
