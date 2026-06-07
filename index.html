@@ -68,6 +68,7 @@
 
             <nav class="nav-tabs">
                 <button class="tab-btn active" data-tab="expenses">Expenses</button>
+                <button class="tab-btn" data-tab="recurring">Recurring</button>
                 <button class="tab-btn" data-tab="reports">Reports</button>
                 <button class="tab-btn" data-tab="logs">Activity</button>
             </nav>
@@ -142,11 +143,38 @@
                 <!-- Reports Tab -->
                 <div id="reports-tab" class="tab-pane">
                     <div class="report-view">
+                        <div class="budget-card sum-card" style="margin-bottom: 1.5rem;">
+                            <div class="log-header" style="align-items: center;">
+                                <span class="label">Total Monthly Budget</span>
+                                <button id="set-budget-btn" class="log-action updated" style="border:none; cursor:pointer;">Set Limit</button>
+                            </div>
+                            <div class="budget-progress-container" style="margin-top: 1rem;">
+                                <div style="display:flex; justify-content:space-between; margin-bottom: 5px; font-weight:600;">
+                                    <span id="budget-spent-text">₹0 spent</span>
+                                    <span id="budget-limit-text">of ₹0</span>
+                                </div>
+                                <div style="height: 12px; background: rgba(255,255,255,0.1); border-radius: 6px; overflow: hidden;">
+                                    <div id="budget-progress-fill" style="height: 100%; width: 0%; background: #4ade80; transition: width 0.3s, background-color 0.3s;"></div>
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="report-header">
-                            <h2>Monthly Breakdown</h2>
+                            <h2>Category Breakdown</h2>
                             <button id="export-csv" class="btn-action">Export CSV</button>
                         </div>
                         <div id="category-breakdown" class="breakdown-list"></div>
+                    </div>
+                </div>
+
+                <!-- Recurring Tab -->
+                <div id="recurring-tab" class="tab-pane">
+                    <div class="report-header" style="margin-bottom: 1rem; display:flex; justify-content:space-between; align-items:center;">
+                        <h2>Active Subscriptions</h2>
+                        <button id="add-recurring-btn" class="log-action added" style="border:none; cursor:pointer; font-size: 0.8rem; padding: 6px 12px;">+ Add New</button>
+                    </div>
+                    <div id="recurring-list" class="expense-cards-container">
+                        <!-- Recurring items injected here -->
                     </div>
                 </div>
 
@@ -220,6 +248,78 @@
                     <button class="btn-cancel close-modal">No, Keep it</button>
                     <button id="confirm-delete" class="btn-delete">Yes, Delete</button>
                 </div>
+            </div>
+        </div>
+
+        <!-- Budget Modal -->
+        <div id="budget-modal" class="modal">
+            <div class="modal-box mini">
+                <div class="modal-head">
+                    <h2 style="margin:0;">Set Monthly Budget</h2>
+                    <button class="close-modal">&times;</button>
+                </div>
+                <form id="budget-form">
+                    <div class="input-group" style="text-align: left; margin-top: 1rem;">
+                        <label>Total Budget Limit (₹)*</label>
+                        <input type="number" id="budget-amount" required step="1" min="0" placeholder="e.g. 20000">
+                    </div>
+                    <div class="modal-footer">
+                        <button type="submit" class="btn-save" style="width: 100%;">Save Limit</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Recurring Modal -->
+        <div id="recurring-modal" class="modal">
+            <div class="modal-box">
+                <div class="modal-head">
+                    <h2 id="recurring-modal-title">New Subscription</h2>
+                    <button class="close-modal">&times;</button>
+                </div>
+                <form id="recurring-form">
+                    <input type="hidden" id="recurring-id">
+                    <div class="input-group">
+                        <label>Title (e.g. Netflix, Rent)*</label>
+                        <input type="text" id="r-title" required>
+                    </div>
+                    <div class="input-row">
+                        <div class="input-group">
+                            <label>Amount (₹)*</label>
+                            <input type="number" id="r-amount" required step="0.01" min="0.01">
+                        </div>
+                        <div class="input-group">
+                            <label>Category*</label>
+                            <select id="r-category" required>
+                                <option value="Food">Food</option>
+                                <option value="Travel">Travel</option>
+                                <option value="Bills">Bills</option>
+                                <option value="Shopping">Shopping</option>
+                                <option value="Health">Health</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="input-row">
+                        <div class="input-group">
+                            <label>Repeats Every*</label>
+                            <select id="r-period" required>
+                                <option value="monthly">Monthly</option>
+                                <option value="weekly">Weekly</option>
+                                <option value="daily">Daily</option>
+                                <option value="yearly">Yearly</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label>Next Due Date*</label>
+                            <input type="date" id="r-next-date" required>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn-cancel close-modal">Cancel</button>
+                        <button type="submit" class="btn-save">Save Setup</button>
+                    </div>
+                </form>
             </div>
         </div>
 

@@ -23,7 +23,9 @@ let state = {
     logPage: 1,
     logTotalCount: 0,
     householdToken: localStorage.getItem('household_token') || '',
-    selectedMonth: getMonthStr()
+    selectedMonth: getMonthStr(),
+    recurringExpenses: [],
+    monthlyBudget: 0
 };
 
 // Elements
@@ -42,12 +44,23 @@ const els = {
     logPageInfo: document.getElementById('log-page-info'),
     prevLogsBtn: document.getElementById('prev-logs'),
     nextLogsBtn: document.getElementById('next-logs'),
-    nextLogsBtn: document.getElementById('next-logs'),
     householdView: document.getElementById('household-view'),
     householdInput: document.getElementById('household-key-input'),
     saveKeyBtn: document.getElementById('save-key-btn'),
     keyError: document.getElementById('key-error'),
-    loadingOverlay: document.getElementById('loading-overlay')
+    loadingOverlay: document.getElementById('loading-overlay'),
+    
+    // New Budget & Recurring Elements
+    budgetSpentText: document.getElementById('budget-spent-text'),
+    budgetLimitText: document.getElementById('budget-limit-text'),
+    budgetProgressFill: document.getElementById('budget-progress-fill'),
+    recurringList: document.getElementById('recurring-list'),
+    recurringModal: document.getElementById('recurring-modal'),
+    recurringForm: document.getElementById('recurring-form'),
+    budgetModal: document.getElementById('budget-modal'),
+    budgetForm: document.getElementById('budget-form'),
+    setBudgetBtn: document.getElementById('set-budget-btn'),
+    addRecurringBtn: document.getElementById('add-recurring-btn')
 };
 
 // Persistence
@@ -87,9 +100,27 @@ const saveState = () => {
 export const renderSummary = async () => {
     if (!state.householdToken) return;
     try {
+        const settings = await api.getSettings(state.householdToken);
+        state.monthlyBudget = settings ? settings.monthly_budget : 0;
+
         const { totalMonth, totalToday, breakdown } = await api.getSummary(state.householdToken, state.selectedMonth);
         els.totalMonth.textContent = formatCurrency(totalMonth);
         els.totalToday.textContent = formatCurrency(totalToday);
+
+        if (els.budgetLimitText) {
+            els.budgetLimitText.textContent = `of ${formatCurrency(state.monthlyBudget)}`;
+            els.budgetSpentText.textContent = `${formatCurrency(totalMonth)} spent`;
+            
+            if (state.monthlyBudget > 0) {
+                const perc = (totalMonth / state.monthlyBudget) * 100;
+                els.budgetProgressFill.style.width = `${Math.min(perc, 100)}%`;
+                if (perc < 80) els.budgetProgressFill.style.backgroundColor = '#4ade80';
+                else if (perc < 100) els.budgetProgressFill.style.backgroundColor = '#f97316';
+                else els.budgetProgressFill.style.backgroundColor = '#ef4444';
+            } else {
+                els.budgetProgressFill.style.width = `0%`;
+            }
+        }
         
         // Render breakdown in reports tab
         els.categoryBreakdown.innerHTML = Object.entries(breakdown).length 
@@ -288,6 +319,89 @@ export const renderLogs = async () => {
     }
 };
 
+export const processRecurring = async () => {
+    if (!state.householdToken) return;
+    try {
+        const recurringList = await api.getRecurring(state.householdToken);
+        const today = new Date();
+        const todayStr = today.toISOString().split('T')[0];
+        const user = getCurrentUser();
+
+        let generated = false;
+
+        for (const item of recurringList) {
+            const nextDue = new Date(item.next_due_date);
+            if (today >= nextDue) {
+                await api.addExpense({
+                    title: item.title,
+                    amount: item.amount,
+                    category: item.category,
+                    date: todayStr,
+                    notes: `Auto-generated (${item.period})`,
+                    created_by: user.email,
+                    household_token: state.householdToken
+                });
+                
+                let newDate = new Date(item.next_due_date);
+                if (item.period === 'daily') newDate.setDate(newDate.getDate() + 1);
+                else if (item.period === 'weekly') newDate.setDate(newDate.getDate() + 7);
+                else if (item.period === 'monthly') newDate.setMonth(newDate.getMonth() + 1);
+                else if (item.period === 'yearly') newDate.setFullYear(newDate.getFullYear() + 1);
+                
+                await api.updateRecurring(item.id, { next_due_date: newDate.toISOString().split('T')[0] });
+                generated = true;
+            }
+        }
+        
+        if (generated) {
+            showToast('Recurring expenses processed!');
+            if (state.view === 'expenses') renderExpenses();
+            if (state.view === 'reports') renderSummary();
+            if (state.view === 'recurring') renderRecurring();
+        }
+    } catch(err) {
+        console.error('Process recurring error', err);
+    }
+};
+
+export const renderRecurring = async () => {
+    if (!state.householdToken) return;
+    setLoading(true);
+    try {
+        const data = await api.getRecurring(state.householdToken);
+        state.recurringExpenses = data;
+        els.recurringList.innerHTML = data.length 
+            ? data.map(item => `
+                <div class="expense-card">
+                    <div class="expense-info">
+                        <div class="expense-title">${item.title}</div>
+                        <div class="expense-meta">
+                            <span class="category-badge">${item.category}</span>
+                            <span style="text-transform: capitalize;">Repeats ${item.period}</span>
+                        </div>
+                        <div class="expense-meta" style="margin-top:4px;">Next Due: ${formatDate(item.next_due_date)}</div>
+                    </div>
+                    <div class="expense-amount-actions">
+                        <div class="expense-amount">${formatCurrency(item.amount)}</div>
+                        <div class="expense-actions">
+                            <button class="btn btn-outline btn-sm edit-recurring-btn" data-id="${item.id}">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn btn-outline btn-sm delete-recurring-btn" data-id="${item.id}">
+                                <i class="fas fa-trash text-danger"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `).join('')
+            : '<div class="empty-state">No active subscriptions</div>';
+    } catch(err) {
+        showToast('Error loading recurring', true);
+    } finally {
+        setLoading(false);
+    }
+};
+
 const updateLogPagination = () => {
     const totalPages = Math.ceil(state.logTotalCount / 20) || 1;
     els.logPageInfo.textContent = `Page ${state.logPage} of ${totalPages}`;
@@ -312,10 +426,12 @@ const setActiveTab = (btn) => {
     }
     if (tabId === 'reports') renderSummary();
     if (tabId === 'logs') renderLogs();
+    if (tabId === 'recurring') renderRecurring();
 };
 
 export const initUI = () => {
     loadState();
+    setTimeout(processRecurring, 1500); // Process on load
     
     // Tab switching
     document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -421,14 +537,18 @@ export const initUI = () => {
                 document.getElementById('date').value = expense.date;
                 document.getElementById('notes').value = expense.notes || '';
             }
-        } else {
-            document.getElementById('modal-title').textContent = 'Add Expense';
-            els.expenseForm.reset();
-            document.getElementById('expense-id').value = '';
-            document.getElementById('date').value = getTodayDate();
+        } else if (modal === els.recurringModal) {
+            document.getElementById('recurring-modal-title').textContent = 'New Subscription';
+            els.recurringForm.reset();
+            document.getElementById('recurring-id').value = '';
+            document.getElementById('r-next-date').value = getTodayDate();
         }
         // Auto-focus first input
-        setTimeout(() => document.getElementById('title').focus(), 100);
+        setTimeout(() => {
+            if (modal === els.expenseModal) document.getElementById('title').focus();
+            if (modal === els.budgetModal) document.getElementById('budget-amount').focus();
+            if (modal === els.recurringModal) document.getElementById('r-title').focus();
+        }, 100);
     };
 
     const closeModal = (modal) => {
@@ -436,6 +556,11 @@ export const initUI = () => {
     };
 
     document.getElementById('add-expense-btn').addEventListener('click', () => openModal(els.expenseModal));
+    els.setBudgetBtn.addEventListener('click', () => {
+        document.getElementById('budget-amount').value = state.monthlyBudget || '';
+        openModal(els.budgetModal);
+    });
+    els.addRecurringBtn.addEventListener('click', () => openModal(els.recurringModal));
     
     document.getElementById('switch-key-btn').addEventListener('click', () => {
         document.getElementById('main-view').classList.add('hidden');
@@ -473,11 +598,101 @@ export const initUI = () => {
         if (editBtn) openModal(els.expenseModal, editBtn.dataset.id);
         if (deleteBtn) {
             window.deleteId = deleteBtn.dataset.id;
+            window.deleteType = 'expense';
             els.deleteModal.classList.add('show');
         }
     });
 
-    // Form Submission
+    els.recurringList.addEventListener('click', (e) => {
+        const editBtn = e.target.closest('.edit-recurring-btn');
+        const deleteBtn = e.target.closest('.delete-recurring-btn');
+        
+        if (editBtn) {
+            const id = editBtn.dataset.id;
+            const recurring = state.recurringExpenses.find(e => e.id === id);
+            if (recurring) {
+                document.getElementById('recurring-modal-title').textContent = 'Edit Subscription';
+                document.getElementById('recurring-id').value = recurring.id;
+                document.getElementById('r-title').value = recurring.title;
+                document.getElementById('r-amount').value = recurring.amount;
+                document.getElementById('r-category').value = recurring.category;
+                document.getElementById('r-period').value = recurring.period;
+                document.getElementById('r-next-date').value = recurring.next_due_date;
+                openModal(els.recurringModal);
+            }
+        }
+        if (deleteBtn) {
+            window.deleteId = deleteBtn.dataset.id;
+            window.deleteType = 'recurring';
+            els.deleteModal.classList.add('show');
+        }
+    });
+
+    // Auto-Categorization (Smart Feature)
+    document.getElementById('title').addEventListener('blur', (e) => {
+        const title = e.target.value.toLowerCase().trim();
+        if(!title) return;
+        const past = state.expenses.find(x => x.title.toLowerCase() === title);
+        if(past) {
+            document.getElementById('category').value = past.category;
+        }
+    });
+
+    // Form Submission: Budget
+    els.budgetForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const amount = parseFloat(document.getElementById('budget-amount').value);
+        if (amount < 0) return;
+        
+        setLoading(true);
+        try {
+            await api.updateBudget(state.householdToken, amount);
+            showToast('Budget Updated!');
+            closeModal(els.budgetModal);
+            renderSummary();
+        } catch (err) {
+            showToast('Error updating budget', true);
+        } finally {
+            setLoading(false);
+        }
+    });
+
+    // Form Submission: Recurring
+    els.recurringForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const user = getCurrentUser();
+        const id = document.getElementById('recurring-id').value;
+        const recurring = {
+            title: document.getElementById('r-title').value.trim(),
+            amount: parseFloat(document.getElementById('r-amount').value),
+            category: document.getElementById('r-category').value,
+            period: document.getElementById('r-period').value,
+            next_due_date: document.getElementById('r-next-date').value,
+            created_by: user.email,
+            household_token: state.householdToken
+        };
+
+        if (!recurring.title || recurring.amount <= 0) return;
+
+        setLoading(true);
+        try {
+            if (id) {
+                await api.updateRecurring(id, recurring);
+                showToast('Subscription updated!');
+            } else {
+                await api.addRecurring(recurring);
+                showToast('Subscription added!');
+            }
+            closeModal(els.recurringModal);
+            renderRecurring();
+        } catch (error) {
+            showToast('Error saving subscription', true);
+        } finally {
+            setLoading(false);
+        }
+    });
+
+    // Form Submission: Expense
     els.expenseForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const user = getCurrentUser();
@@ -545,27 +760,34 @@ export const initUI = () => {
     document.getElementById('confirm-delete').addEventListener('click', async () => {
         const id = window.deleteId;
         const user = getCurrentUser();
-        const expense = state.expenses.find(e => e.id === id);
         
         setLoading(true);
         try {
-            await api.deleteExpense(id);
-            if (expense) {
-                await api.addLog({
-                    action_type: 'deleted',
-                    item_title: expense.title,
-                    user_name: user.displayName || user.email,
-                    created_by: user.email,
-                    household_token: state.householdToken
-                });
+            if (window.deleteType === 'recurring') {
+                await api.deleteRecurring(id);
+                showToast('Subscription deleted!');
+                closeModal(els.deleteModal);
+                renderRecurring();
+            } else {
+                const expense = state.expenses.find(e => e.id === id);
+                await api.deleteExpense(id);
+                if (expense) {
+                    await api.addLog({
+                        action_type: 'deleted',
+                        item_title: expense.title,
+                        user_name: user.displayName || user.email,
+                        created_by: user.email,
+                        household_token: state.householdToken
+                    });
+                }
+                showToast('Expense deleted!');
+                closeModal(els.deleteModal);
+                renderExpenses();
+                renderSummary();
+                renderAnalytics();
             }
-            showToast('Expense deleted!');
-            closeModal(els.deleteModal);
-            renderExpenses();
-            renderSummary();
-            renderAnalytics();
         } catch (error) {
-            showToast('Error deleting expense', true);
+            showToast('Error deleting record', true);
         } finally {
             setLoading(false);
         }

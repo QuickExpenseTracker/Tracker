@@ -169,5 +169,59 @@ export const api = {
             data: await response.json(),
             totalCount
         };
+    },
+
+    // --- Budget & Settings ---
+    async getSettings(householdId) {
+        const response = await fetch(`${URL}/rest/v1/household_settings?household_token=eq.${householdId}`, { headers });
+        const data = await response.json();
+        return data.length ? data[0] : null;
+    },
+
+    async updateBudget(householdId, amount) {
+        const payload = { household_token: householdId, monthly_budget: amount, updated_at: new Date().toISOString() };
+        const response = await fetch(`${URL}/rest/v1/household_settings`, {
+            method: 'POST', // UPSERT logic
+            headers: { ...headers, 'Prefer': 'resolution=merge-duplicates' },
+            body: JSON.stringify(payload)
+        });
+        if (!response.ok) throw new Error('Failed to update budget');
+        return true;
+    },
+
+    // --- Recurring Expenses ---
+    async getRecurring(householdId) {
+        const response = await fetch(`${URL}/rest/v1/recurring_expenses?household_token=eq.${householdId}&order=created_at.desc`, { headers });
+        if (!response.ok) throw new Error('Failed to fetch recurring expenses');
+        return await response.json();
+    },
+
+    async addRecurring(recurring) {
+        const response = await fetch(`${URL}/rest/v1/recurring_expenses`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(recurring)
+        });
+        if (!response.ok) throw new Error('Failed to add recurring expense');
+        return await response.json();
+    },
+
+    async updateRecurring(id, recurring) {
+        const response = await fetch(`${URL}/rest/v1/recurring_expenses?id=eq.${id}`, {
+            method: 'PATCH',
+            headers,
+            body: JSON.stringify(recurring)
+        });
+        if (!response.ok) throw new Error('Failed to update recurring expense');
+        return await response.json();
+    },
+
+    async deleteRecurring(id) {
+        const response = await fetch(`${URL}/rest/v1/recurring_expenses?id=eq.${id}`, {
+            method: 'DELETE',
+            headers
+        });
+        if (!response.ok) throw new Error('Failed to delete recurring expense');
+        return true;
     }
 };
