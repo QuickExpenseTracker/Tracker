@@ -145,13 +145,13 @@
                     <div class="report-view">
                         <div class="budget-card sum-card" style="margin-bottom: 1.5rem;">
                             <div class="log-header" style="align-items: center;">
-                                <span class="label">Total Monthly Budget</span>
-                                <button id="set-budget-btn" class="log-action updated" style="border:none; cursor:pointer;">Set Limit</button>
+                                <span class="label">Household Settings</span>
+                                <button id="set-budget-btn" class="log-action updated" style="border:none; cursor:pointer;">Settings</button>
                             </div>
                             <div class="budget-progress-container" style="margin-top: 1rem;">
                                 <div style="display:flex; justify-content:space-between; margin-bottom: 5px; font-weight:600;">
                                     <span id="budget-spent-text">₹0 spent</span>
-                                    <span id="budget-limit-text">of ₹0</span>
+                                    <span id="budget-limit-text">of ₹0 Limit</span>
                                 </div>
                                 <div style="height: 12px; background: rgba(255,255,255,0.1); border-radius: 6px; overflow: hidden;">
                                     <div id="budget-progress-fill" style="height: 100%; width: 0%; background: #4ade80; transition: width 0.3s, background-color 0.3s;"></div>
@@ -263,22 +263,43 @@
             </div>
         </div>
 
-        <!-- Budget Modal -->
+        <!-- Settings Modal (formerly Budget Modal) -->
         <div id="budget-modal" class="modal">
             <div class="modal-box mini">
                 <div class="modal-head">
-                    <h2 style="margin:0;">Set Monthly Budget</h2>
+                    <h2 style="margin:0;">Household Settings</h2>
                     <button class="close-modal">&times;</button>
                 </div>
                 <form id="budget-form">
                     <div class="input-group" style="text-align: left; margin-top: 1rem;">
-                        <label>Total Budget Limit (₹)*</label>
+                        <label>Total Monthly Budget (₹)*</label>
                         <input type="number" id="budget-amount" required step="1" min="0" placeholder="e.g. 20000">
                     </div>
+                    <div class="input-group" style="text-align: left; margin-top: 1rem;">
+                        <label>Shopping Alert Threshold (₹)*</label>
+                        <input type="number" id="shopping-threshold" required step="1" min="0" placeholder="e.g. 5000">
+                        <small style="color: #94a3b8; font-size: 0.75rem; display:block; margin-top: 4px;">Alerts you if this month's shopping exceeds your past spending.</small>
+                    </div>
                     <div class="modal-footer">
-                        <button type="submit" class="btn-save" style="width: 100%;">Save Limit</button>
+                        <button type="submit" class="btn-save" style="width: 100%;">Save Settings</button>
                     </div>
                 </form>
+            </div>
+        </div>
+
+        <!-- Overspend Alert Modal -->
+        <div id="overspend-modal" class="modal">
+            <div class="modal-box mini">
+                <h2 style="color: #f97316;">Wait a minute... 🛑</h2>
+                <p id="overspend-message" style="margin-bottom: 1rem;">You are spending a lot!</p>
+                <div id="overspend-reason-group" class="input-group hidden" style="text-align: left;">
+                    <label>Why is this necessary?</label>
+                    <textarea id="overspend-reason" rows="2" placeholder="Briefly justify this purchase..."></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button id="overspend-cancel-btn" class="btn-cancel close-modal">Nah, skip it</button>
+                    <button id="overspend-proceed-btn" class="btn-save">Yes, Proceed</button>
+                </div>
             </div>
         </div>
 

@@ -26,6 +26,7 @@ let state = {
     selectedMonth: getMonthStr(),
     recurringExpenses: [],
     monthlyBudget: 0,
+    shoppingThreshold: 5000,
     yearlyChart: null
 };
 
@@ -62,8 +63,17 @@ const els = {
     budgetForm: document.getElementById('budget-form'),
     setBudgetBtn: document.getElementById('set-budget-btn'),
     addRecurringBtn: document.getElementById('add-recurring-btn'),
-    yearlyChartYear: document.getElementById('yearly-chart-year')
+    yearlyChartYear: document.getElementById('yearly-chart-year'),
+    overspendModal: document.getElementById('overspend-modal'),
+    overspendMessage: document.getElementById('overspend-message'),
+    overspendReasonGroup: document.getElementById('overspend-reason-group'),
+    overspendReason: document.getElementById('overspend-reason'),
+    overspendCancelBtn: document.getElementById('overspend-cancel-btn'),
+    overspendProceedBtn: document.getElementById('overspend-proceed-btn')
 };
+
+let pendingExpense = null;
+let pendingExpenseId = null;
 
 // Persistence
 const loadState = () => {
@@ -103,7 +113,10 @@ export const renderSummary = async () => {
     if (!state.householdToken) return;
     try {
         const settings = await api.getSettings(state.householdToken);
-        state.monthlyBudget = settings ? settings.monthly_budget : 0;
+        if (settings) {
+            state.monthlyBudget = parseFloat(settings.monthly_budget) || 0;
+            state.shoppingThreshold = parseFloat(settings.shopping_threshold) || 5000;
+        }
 
         const { totalMonth, totalToday, breakdown } = await api.getSummary(state.householdToken, state.selectedMonth);
         els.totalMonth.textContent = formatCurrency(totalMonth);
@@ -648,6 +661,7 @@ export const initUI = () => {
     document.getElementById('add-expense-btn').addEventListener('click', () => openModal(els.expenseModal));
     els.setBudgetBtn.addEventListener('click', () => {
         document.getElementById('budget-amount').value = state.monthlyBudget || '';
+        document.getElementById('shopping-threshold').value = state.shoppingThreshold || 5000;
         openModal(els.budgetModal);
     });
     els.addRecurringBtn.addEventListener('click', () => openModal(els.recurringModal));
@@ -728,20 +742,23 @@ export const initUI = () => {
         }
     });
 
-    // Form Submission: Budget
+    // Form Submission: Settings (Budget + Shopping Threshold)
     els.budgetForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const amount = parseFloat(document.getElementById('budget-amount').value);
-        if (amount < 0) return;
+        const shopThresh = parseFloat(document.getElementById('shopping-threshold').value);
+        if (amount < 0 || shopThresh < 0) return;
         
         setLoading(true);
         try {
-            await api.updateBudget(state.householdToken, amount);
-            showToast('Budget Updated!');
+            await api.updateSettings(state.householdToken, amount, shopThresh);
+            state.monthlyBudget = amount;
+            state.shoppingThreshold = shopThresh;
+            showToast('Settings saved!');
             closeModal(els.budgetModal);
             renderSummary();
         } catch (err) {
-            showToast('Error updating budget', true);
+            showToast('Error saving settings', true);
         } finally {
             setLoading(false);
         }
@@ -782,7 +799,59 @@ export const initUI = () => {
         }
     });
 
-    // Form Submission: Expense
+    // Smart Alert Helper
+    const checkOverspending = async (expense) => {
+        const amount = parseFloat(expense.amount);
+        const category = expense.category;
+        const currentMonthStr = expense.date.substring(0, 7);
+
+        if (category === 'Food') {
+            const currentSpend = await api.getCategorySpend(state.householdToken, 'Food', currentMonthStr);
+            const avgSpend = await api.getCategoryAverage(state.householdToken, 'Food', 2);
+            if (avgSpend > 0 && (currentSpend + amount) > (avgSpend * 1.1)) {
+                return { triggered: true, message: `You've spent a lot on Food this month! Your usual average is ₹${avgSpend.toFixed(0)}, but this purchase will bring you to ₹${(currentSpend + amount).toFixed(0)}. Are you sure?` };
+            }
+        } else if (category === 'Shopping') {
+            const [year, month] = currentMonthStr.split('-');
+            let lm = parseInt(month) - 1;
+            let ly = parseInt(year);
+            if (lm === 0) { lm = 12; ly--; }
+            const lastMonthStr = `${ly}-${lm.toString().padStart(2, '0')}`;
+            const lastMonthSpend = await api.getCategorySpend(state.householdToken, 'Shopping', lastMonthStr);
+            if (lastMonthSpend > state.shoppingThreshold) {
+                return { triggered: true, message: `You had a heavy shopping month last month (₹${lastMonthSpend.toFixed(0)}). Do you really need to shop again so soon?` };
+            }
+        }
+        return { triggered: false };
+    };
+
+    // Final save after alert check
+    const saveExpenseFinal = async (id, expense) => {
+        const user = getCurrentUser();
+        setLoading(true);
+        try {
+            if (id) {
+                await api.updateExpense(id, expense);
+                await api.addLog({ action_type: 'updated', item_title: expense.title, user_name: user.displayName || user.email, created_by: user.email, household_token: state.householdToken });
+                showToast('Expense updated!');
+            } else {
+                await api.addExpense(expense);
+                await api.addLog({ action_type: 'added', item_title: expense.title, user_name: user.displayName || user.email, created_by: user.email, household_token: state.householdToken });
+                showToast('Expense added!');
+            }
+            closeModal(els.expenseModal);
+            closeModal(els.overspendModal);
+            renderExpenses();
+            renderSummary();
+            renderAnalytics();
+        } catch (error) {
+            showToast('Error saving expense', true);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Form Submission: Expense (with Smart Alert Interception)
     els.expenseForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const user = getCurrentUser();
@@ -802,48 +871,47 @@ export const initUI = () => {
             return;
         }
 
-        // Prevent Duplicate Check (Simple warning)
-        const isDuplicate = state.expenses.some(e => 
-            e.title.toLowerCase() === expense.title.toLowerCase() && 
-            e.date === expense.date && 
-            e.id !== id
-        );
-        if (isDuplicate && !confirm('An expense with the same title and date already exists. Continue?')) {
-            return;
+        // Smart Alert: only fires on new expenses (not edits)
+        if (!id) {
+            setLoading(true);
+            const check = await checkOverspending(expense);
+            setLoading(false);
+            if (check.triggered) {
+                els.overspendMessage.textContent = check.message;
+                els.overspendReasonGroup.classList.add('hidden');
+                els.overspendReason.value = '';
+                els.overspendProceedBtn.textContent = 'Yes, Proceed';
+                pendingExpense = expense;
+                pendingExpenseId = id;
+                openModal(els.overspendModal);
+                return;
+            }
         }
 
-        setLoading(true);
-        try {
-            if (id) {
-                await api.updateExpense(id, expense);
-                await api.addLog({
-                    action_type: 'updated',
-                    item_title: expense.title,
-                    user_name: user.displayName || user.email,
-                    created_by: user.email,
-                    household_token: state.householdToken
-                });
-                showToast('Expense updated!');
-            } else {
-                await api.addExpense(expense);
-                await api.addLog({
-                    action_type: 'added',
-                    item_title: expense.title,
-                    user_name: user.displayName || user.email,
-                    created_by: user.email,
-                    household_token: state.householdToken
-                });
-                showToast('Expense added!');
-            }
-            closeModal(els.expenseModal);
-            renderExpenses();
-            renderSummary();
-            renderAnalytics();
-        } catch (error) {
-            showToast('Error saving expense', true);
-        } finally {
-            setLoading(false);
+        await saveExpenseFinal(id, expense);
+    });
+
+    // Overspend Modal: Proceed (2-step: show reason box first, then confirm)
+    els.overspendProceedBtn.addEventListener('click', () => {
+        if (els.overspendReasonGroup.classList.contains('hidden')) {
+            els.overspendReasonGroup.classList.remove('hidden');
+            els.overspendProceedBtn.textContent = 'Confirm & Save';
+        } else {
+            const reason = els.overspendReason.value.trim();
+            if (!reason) { showToast('Please enter a reason to proceed.', true); return; }
+            pendingExpense.notes = pendingExpense.notes
+                ? `${pendingExpense.notes} | Reason: ${reason}`
+                : `Reason: ${reason}`;
+            saveExpenseFinal(pendingExpenseId, pendingExpense);
         }
+    });
+
+    // Overspend Modal: Cancel
+    els.overspendCancelBtn.addEventListener('click', () => {
+        pendingExpense = null;
+        pendingExpenseId = null;
+        closeModal(els.overspendModal);
+        closeModal(els.expenseModal);
     });
 
     // Delete Confirmation

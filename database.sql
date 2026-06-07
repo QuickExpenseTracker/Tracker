@@ -31,6 +31,7 @@ CREATE INDEX IF NOT EXISTS idx_logs_household ON activity_log(household_token);
 CREATE TABLE IF NOT EXISTS household_settings (
     household_token TEXT PRIMARY KEY,
     monthly_budget DECIMAL(10, 2) NOT NULL DEFAULT 0,
+    shopping_threshold DECIMAL(10, 2) NOT NULL DEFAULT 5000,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 

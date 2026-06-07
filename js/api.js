@@ -196,15 +196,49 @@ export const api = {
         return data.length ? data[0] : null;
     },
 
-    async updateBudget(householdId, amount) {
-        const payload = { household_token: householdId, monthly_budget: amount, updated_at: new Date().toISOString() };
+    async updateSettings(householdId, budget, shoppingThreshold) {
+        const payload = { 
+            household_token: householdId, 
+            monthly_budget: budget, 
+            shopping_threshold: shoppingThreshold,
+            updated_at: new Date().toISOString() 
+        };
         const response = await fetch(`${URL}/rest/v1/household_settings`, {
             method: 'POST', // UPSERT logic
             headers: { ...headers, 'Prefer': 'resolution=merge-duplicates' },
             body: JSON.stringify(payload)
         });
-        if (!response.ok) throw new Error('Failed to update budget');
+        if (!response.ok) throw new Error('Failed to update settings');
         return true;
+    },
+
+    // --- Smart Alerts Helpers ---
+    async getCategorySpend(householdId, category, monthStr) {
+        // monthStr is 'YYYY-MM'
+        const [year, month] = monthStr.split('-');
+        const startOfMonth = new Date(year, month - 1, 1).toISOString().split('T')[0];
+        const endOfMonth = new Date(year, month, 0).toISOString().split('T')[0];
+        
+        const response = await fetch(`${URL}/rest/v1/expenses?household_token=eq.${householdId}&category=eq.${category}&date=gte.${startOfMonth}&date=lte.${endOfMonth}&select=amount`, { headers });
+        if (!response.ok) return 0;
+        const data = await response.json();
+        return data.reduce((sum, item) => sum + parseFloat(item.amount), 0);
+    },
+
+    async getCategoryAverage(householdId, category, numMonths) {
+        // Get the start date numMonths ago
+        const now = new Date();
+        const startOfPeriod = new Date(now.getFullYear(), now.getMonth() - numMonths, 1).toISOString().split('T')[0];
+        // End of last month
+        const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0).toISOString().split('T')[0];
+        
+        const response = await fetch(`${URL}/rest/v1/expenses?household_token=eq.${householdId}&category=eq.${category}&date=gte.${startOfPeriod}&date=lte.${endOfLastMonth}&select=amount`, { headers });
+        if (!response.ok) return 0;
+        const data = await response.json();
+        if (data.length === 0) return 0; // Not enough data
+        
+        const totalSum = data.reduce((sum, item) => sum + parseFloat(item.amount), 0);
+        return totalSum / numMonths; // Rough average per month
     },
 
     // --- Recurring Expenses ---
