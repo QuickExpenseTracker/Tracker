@@ -2,6 +2,12 @@ import { api } from './api.js';
 import { getCurrentUser } from './auth.js';
 import { formatDate, formatCurrency, debounce, showToast, setLoading, exportToCSV, getTodayDate } from './utils.js';
 
+const getMonthStr = () => {
+    const now = new Date();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    return `${now.getFullYear()}-${m}`;
+};
+
 // State
 let state = {
     page: 1,
@@ -16,7 +22,8 @@ let state = {
     chart: null,
     logPage: 1,
     logTotalCount: 0,
-    householdToken: localStorage.getItem('household_token') || ''
+    householdToken: localStorage.getItem('household_token') || '',
+    selectedMonth: getMonthStr()
 };
 
 // Elements
@@ -56,6 +63,9 @@ const loadState = () => {
         document.getElementById('sort-by').value = state.sortBy;
         document.getElementById('items-per-page').value = state.limit;
         
+        if (!state.selectedMonth) state.selectedMonth = getMonthStr();
+        document.getElementById('global-month').value = state.selectedMonth;
+        
         const activeTab = document.querySelector(`.tab-btn[data-tab="${state.view}"]`);
         if (activeTab) setActiveTab(activeTab);
     }
@@ -68,7 +78,8 @@ const saveState = () => {
         category: state.category,
         date: state.date,
         sortBy: state.sortBy,
-        view: state.view
+        view: state.view,
+        selectedMonth: state.selectedMonth
     }));
 };
 
@@ -76,7 +87,7 @@ const saveState = () => {
 export const renderSummary = async () => {
     if (!state.householdToken) return;
     try {
-        const { totalMonth, totalToday, breakdown } = await api.getSummary(state.householdToken);
+        const { totalMonth, totalToday, breakdown } = await api.getSummary(state.householdToken, state.selectedMonth);
         els.totalMonth.textContent = formatCurrency(totalMonth);
         els.totalToday.textContent = formatCurrency(totalToday);
         
@@ -151,10 +162,10 @@ export const renderAnalytics = async () => {
     if (!state.householdToken) return;
     
     try {
-        const { totalLastMonth, totalYesterday, dailyTotals } = await api.getComparison(state.householdToken);
+        const { totalLastMonth, totalYesterday, dailyTotals } = await api.getComparison(state.householdToken, state.selectedMonth);
         
         // Month comparison
-        const monthRes = await api.getSummary(state.householdToken);
+        const monthRes = await api.getSummary(state.householdToken, state.selectedMonth);
         const thisMonthTotal = monthRes.totalMonth;
         const monthDiff = thisMonthTotal - totalLastMonth;
         const monthPerc = totalLastMonth ? (monthDiff / totalLastMonth * 100).toFixed(0) : (thisMonthTotal ? 100 : 0);
@@ -171,6 +182,13 @@ export const renderAnalytics = async () => {
         const tBadge = document.getElementById('today-diff');
         tBadge.textContent = `${todayPerc > 0 ? '+' : ''}${todayPerc}%`;
         tBadge.className = `diff-badge ${todayPerc > 0 ? 'up' : 'down'}`;
+
+        // Hide daily card if not viewing the current real-world month
+        const isCurrentMonth = state.selectedMonth === getMonthStr();
+        const dailyCard = document.getElementById('daily-summary-card');
+        if (dailyCard) {
+            dailyCard.style.display = isCurrentMonth ? 'flex' : 'none';
+        }
 
         // Chart
         renderChart(dailyTotals);
@@ -191,7 +209,8 @@ export const renderExpenses = async () => {
             search: state.search,
             category: state.category,
             date: state.date,
-            sortBy: state.sortBy
+            sortBy: state.sortBy,
+            monthStr: state.selectedMonth
         });
         
         state.expenses = data;
@@ -303,6 +322,16 @@ export const initUI = () => {
         btn.addEventListener('click', () => setActiveTab(btn));
     });
 
+    // Month picker
+    document.getElementById('global-month').addEventListener('change', (e) => {
+        state.selectedMonth = e.target.value;
+        state.page = 1;
+        saveState();
+        renderExpenses();
+        renderSummary();
+        renderAnalytics();
+    });
+
     // Filtering & Sorting
     document.getElementById('search-input').addEventListener('input', debounce((e) => {
         state.search = e.target.value;
@@ -373,7 +402,7 @@ export const initUI = () => {
 
     // Export
     document.getElementById('export-csv').addEventListener('click', () => {
-        const filename = `expense-report-${new Date().toISOString().split('T')[0]}.csv`;
+        const filename = `expense-report-${state.selectedMonth || new Date().toISOString().split('T')[0]}.csv`;
         exportToCSV(state.expenses, filename);
         showToast('Exporting CSV...');
     });
